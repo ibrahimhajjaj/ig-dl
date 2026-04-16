@@ -41,33 +41,79 @@ Global flags: `--out <dir>`, `--json`.
 
 ## Auth: getting a session
 
-### Recommended path — toggle CDP inside your real browser (no relaunch)
+Chrome 136+ / Edge 136+ refuse `--remote-debugging-port` when pointed
+at your default profile as a security hardening. There's no toggle or
+policy that re-enables it against the default profile — Chrome's
+official guidance is to use a custom `--user-data-dir`. That leaves
+three workable paths:
 
-Chromium shipped a permission-based live-attach flow in 2025. No
-`--remote-debugging-port` launch flag, no `--user-data-dir`, no new
-profile. Your real browser with all your real logins stays as is:
+### Path A — companion extension (recommended: real profile, no launch flags)
+
+Install the sidecar in your normal browser once, click a button
+whenever you need to refresh the session:
 
 ```
-1. Open your browser (Chrome / Edge / Brave / …)
-2. Visit  chrome://inspect/#remote-debugging
-          (or edge://inspect/…, brave://inspect/…)
-3. Toggle "Enable Remote Debugging" on
-4. ./ig-dl browsers     # confirms your browser shows as [live]
-5. ./ig-dl login        # captures session against the real profile
+1. In your normal browser:
+     edge://extensions (or chrome://extensions)
+     enable "Developer mode"
+     "Load unpacked" → select this repo's  extension-companion/  directory
+2. Use Instagram normally. When you want to download, open the
+   extension's options page and click "Export session for CLI".
+3. ./ig-dl login --import ~/Downloads/ig-dl-session.json
 ```
 
-`ig-dl` reads the browser's `DevToolsActivePort` file to discover the
-dynamic port it picked, so no config is needed.
+Your real logins stay in your real browser. Only cost: one click per
+session refresh.
 
-### Alternative path — launch the browser with `--remote-debugging-port`
+### Path B — profile copy + `--remote-debugging-port`
 
-Useful if you want CDP always-on without the UI toggle.
+Clones your real profile to an isolated dir so CDP works AND your IG
+login comes along as a snapshot:
 
-Chromium-based browsers (Chrome 136+ / Edge 136+) silently ignore
-`--remote-debugging-port` when pointed at your default user-data-dir, as
-a security hardening. Pair the debug port flag with a fresh
-`--user-data-dir` — you'll sign into Instagram once inside that
-isolated profile and ig-dl attaches to it.
+```sh
+# Quit the target browser first (profile files are locked while open)
+osascript -e 'quit app "Microsoft Edge"' ; sleep 2
+
+# Copy real profile → isolated dir (~1-2 GB)
+rm -rf "$HOME/.ig-dl/edge-profile"
+cp -R "$HOME/Library/Application Support/Microsoft Edge" \
+      "$HOME/.ig-dl/edge-profile"
+
+# Launch with CDP against the copy
+/Applications/Microsoft\ Edge.app/Contents/MacOS/Microsoft\ Edge \
+  --remote-debugging-port=9222 \
+  --user-data-dir="$HOME/.ig-dl/edge-profile" &
+
+# Verify — should return JSON, not 404
+sleep 2 && curl -s http://127.0.0.1:9222/json/version | head -3
+
+./ig-dl login
+```
+
+To refresh, re-run the copy step. Changes inside the copy (new
+bookmarks, saved passwords) don't sync back to your main browser.
+
+### Path C — fresh profile + `--remote-debugging-port`
+
+No copy. You log into Instagram once in the isolated profile; the
+profile persists, so future launches stay logged in.
+
+```sh
+/Applications/Microsoft\ Edge.app/Contents/MacOS/Microsoft\ Edge \
+  --remote-debugging-port=9222 \
+  --user-data-dir="$HOME/.ig-dl/browser-profile" &
+# In the new Edge window, open instagram.com and log in once, then:
+./ig-dl login
+```
+
+### Discovery (all paths)
+
+`ig-dl browsers` lists every browser whose user-data-dir contains a
+`DevToolsActivePort` file. Files marked `[live]` mean a debug-capable
+browser is currently answering on that port; `[stale]` means the file
+is a leftover from a past debug session and can be ignored (ig-dl
+won't connect to stale ports). This auto-detection works for Path B
+and Path C regardless of which port the browser picked.
 
 **Important:** Chromium-based browsers (since Chrome 136 / Edge 136, late
 2025) silently ignore `--remote-debugging-port` when pointed at your

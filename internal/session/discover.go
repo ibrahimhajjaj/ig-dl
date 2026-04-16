@@ -1,13 +1,16 @@
 package session
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Browser identifies a Chromium-based browser whose DevToolsActivePort
@@ -32,10 +35,11 @@ func KnownBrowsers() []Browser {
 	}
 }
 
-// ErrNoActivePort indicates no DevToolsActivePort file was found for any
-// known browser — meaning no Chromium-based browser has CDP enabled via
-// the chrome://inspect/#remote-debugging toggle.
-var ErrNoActivePort = errors.New("session: no DevToolsActivePort found; enable CDP in the browser via chrome://inspect/#remote-debugging")
+// ErrNoActivePort indicates no live DevToolsActivePort was found for any
+// known Chromium-based browser — meaning no browser is currently
+// serving CDP. The fix is to launch one with
+// --remote-debugging-port=<port> and --user-data-dir=<fresh-path>.
+var ErrNoActivePort = errors.New("session: no live CDP endpoint found; launch a Chromium browser with --remote-debugging-port and --user-data-dir (see README)")
 
 // ActivePort describes a browser that is currently exposing CDP.
 type ActivePort struct {
@@ -60,6 +64,57 @@ type ActivePort struct {
 // the zero-config way to find the port — no `--remote-debugging-port`
 // flag required on launch.
 func DiscoverActivePort(preferred Browser) (*ActivePort, error) {
+	return discoverActivePort(preferred, true)
+}
+
+// DiscoverAllActivePorts returns every DevToolsActivePort file it
+// finds without filtering stale entries. Used by `ig-dl browsers` to
+// show the full picture.
+func DiscoverAllActivePorts() []*ActivePort {
+	var out []*ActivePort
+	for _, b := range KnownBrowsers() {
+		paths, err := userDataDirs(b)
+		if err != nil {
+			continue
+		}
+		for _, dir := range paths {
+			port, wspath, err := readActivePort(filepath.Join(dir, "DevToolsActivePort"))
+			if err != nil {
+				continue
+			}
+			out = append(out, &ActivePort{
+				Browser: b,
+				Port:    port,
+				WSPath:  wspath,
+				Source:  filepath.Join(dir, "DevToolsActivePort"),
+			})
+		}
+	}
+	return out
+}
+
+// IsLive probes /json/version on the discovered port to check that CDP
+// is actually answering — DevToolsActivePort files often linger after
+// a debug browser is closed.
+func (a *ActivePort) IsLive(ctx context.Context) bool {
+	if a == nil {
+		return false
+	}
+	client := &http.Client{Timeout: 500 * time.Millisecond}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		fmt.Sprintf("http://127.0.0.1:%d/json/version", a.Port), nil)
+	if err != nil {
+		return false
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
+}
+
+func discoverActivePort(preferred Browser, requireLive bool) (*ActivePort, error) {
 	order := orderedBrowsers(preferred)
 	var lastErr error
 	for _, b := range order {
@@ -76,12 +131,16 @@ func DiscoverActivePort(preferred Browser) (*ActivePort, error) {
 				}
 				continue
 			}
-			return &ActivePort{
+			ap := &ActivePort{
 				Browser: b,
 				Port:    port,
 				WSPath:  wspath,
 				Source:  filepath.Join(dir, "DevToolsActivePort"),
-			}, nil
+			}
+			if requireLive && !ap.IsLive(context.Background()) {
+				continue
+			}
+			return ap, nil
 		}
 	}
 	if lastErr != nil {

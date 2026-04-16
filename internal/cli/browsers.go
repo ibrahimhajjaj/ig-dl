@@ -3,8 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"time"
 
 	"github.com/ibrhajjaj/ig-dl/internal/session"
 	"github.com/spf13/cobra"
@@ -29,44 +27,23 @@ To enable CDP on your normal browser without relaunch:
 }
 
 func runBrowsers(ctx context.Context) error {
-	client := &http.Client{Timeout: 1 * time.Second}
-	found := 0
-	for _, b := range session.KnownBrowsers() {
-		ap, err := session.DiscoverActivePort(b)
-		if err != nil || ap == nil || ap.Browser != b {
-			// DiscoverActivePort with a preferred browser still scans all;
-			// skip entries that resolved to a different browser than we asked.
-			continue
-		}
-		found++
-		live := probeLive(ctx, client, ap.Port)
+	all := session.DiscoverAllActivePorts()
+	if len(all) == 0 && !flagJSON {
+		fmt.Println("no DevToolsActivePort files found.")
+		fmt.Println("launch a Chromium browser with --remote-debugging-port + --user-data-dir; see README paths B/C.")
+		return nil
+	}
+	for _, ap := range all {
+		live := ap.IsLive(ctx)
 		status := "stale"
 		if live {
 			status = "live"
 		}
 		if flagJSON {
-			// one JSON object per line
 			fmt.Printf(`{"browser":%q,"port":%d,"source":%q,"live":%t}`+"\n", ap.Browser, ap.Port, ap.Source, live)
 		} else {
 			fmt.Printf("  %-10s port=%d  [%s]  %s\n", ap.Browser, ap.Port, status, ap.Source)
 		}
 	}
-	if found == 0 && !flagJSON {
-		fmt.Println("no browser has CDP enabled — toggle chrome://inspect/#remote-debugging in your browser")
-	}
 	return nil
-}
-
-func probeLive(ctx context.Context, client *http.Client, port int) bool {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		fmt.Sprintf("http://127.0.0.1:%d/json/version", port), nil)
-	if err != nil {
-		return false
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return false
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode == http.StatusOK
 }
