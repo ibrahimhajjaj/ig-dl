@@ -74,24 +74,90 @@ func AttachRunningChrome(ctx context.Context, debugPort int) (*types.Session, er
 }
 
 // AttachDiscovered tries to find a running Chromium-based browser that
-// exposes CDP via its DevToolsActivePort file (the
-// chrome://inspect/#remote-debugging path) and attaches to it. On
-// success it returns a *types.Session plus the discovered ActivePort so
-// callers can report the source to the user.
+// exposes CDP via its DevToolsActivePort file and attaches to it.
 //
-// This is the preferred attach mode post-Chrome 136: no explicit
-// --remote-debugging-port launch flag required, works against the user's
-// real profile, sessions and logins included.
+// Two on-disk shapes produce a valid ActivePort:
+//
+//  1. Classic `--remote-debugging-port` launch: the file carries just a
+//     port, and CDP is discovered through `/json/version`.
+//  2. Chrome M144+ `chrome://inspect/#remote-debugging` toggle: the file
+//     carries the port AND a specific WebSocket path (e.g.
+//     `/devtools/browser/<uuid>`). The /json/version endpoint 404s in
+//     this mode — we connect the WebSocket directly.
+//
+// Shape 2 is the only known way to get CDP against the user's real
+// default profile without a relaunch; shape 1 requires --user-data-dir.
 func AttachDiscovered(ctx context.Context, preferred Browser) (*types.Session, *ActivePort, error) {
-	ap, err := DiscoverActivePort(preferred)
-	if err != nil {
-		return nil, nil, err
+	all := DiscoverAllActivePorts()
+	if len(all) == 0 {
+		return nil, nil, ErrNoActivePort
 	}
-	s, err := AttachRunningChromeWithOptions(ctx, ap.Port, AttachOptions{})
-	if err != nil {
-		return nil, ap, err
+	// Re-order so `preferred` is tried first when set.
+	if preferred != "" {
+		ordered := make([]*ActivePort, 0, len(all))
+		for _, ap := range all {
+			if ap.Browser == preferred {
+				ordered = append(ordered, ap)
+			}
+		}
+		for _, ap := range all {
+			if ap.Browser != preferred {
+				ordered = append(ordered, ap)
+			}
+		}
+		all = ordered
 	}
-	return s, ap, nil
+
+	var lastErr error
+	for _, ap := range all {
+		if !ap.IsLive(ctx) {
+			continue
+		}
+		s, err := attachOneActive(ctx, ap)
+		if err == nil {
+			return s, ap, nil
+		}
+		lastErr = fmt.Errorf("%s (port %d): %w", ap.Browser, ap.Port, err)
+		// Keep iterating — ErrNoIGTab in one browser doesn't preclude
+		// another browser having a logged-in IG tab.
+	}
+	if lastErr == nil {
+		return nil, nil, ErrNoActivePort
+	}
+	return nil, nil, lastErr
+}
+
+func attachOneActive(ctx context.Context, ap *ActivePort) (*types.Session, error) {
+	if ap.WSPath != "" {
+		return AttachViaWSEndpoint(ctx, fmt.Sprintf("ws://127.0.0.1:%d%s", ap.Port, ap.WSPath), AttachOptions{})
+	}
+	return AttachRunningChromeWithOptions(ctx, ap.Port, AttachOptions{})
+}
+
+// AttachViaWSEndpoint attaches to an already-running browser via a
+// direct WebSocket URL (e.g. ws://127.0.0.1:9222/devtools/browser/<id>),
+// bypassing the /json/version HTTP discovery step. This is the path
+// taken for Chrome M144+ toggle-style live sessions.
+//
+// The passed context bounds the whole operation. If Chrome prompts the
+// user for permission (M144 behaviour), the dialog must be answered
+// within that deadline.
+func AttachViaWSEndpoint(ctx context.Context, wsURL string, opts AttachOptions) (*types.Session, error) {
+	if opts.CaptureWindow <= 0 {
+		opts.CaptureWindow = captureWindow
+	}
+
+	allocCtx, allocCancel := chromedp.NewRemoteAllocator(ctx, wsURL, chromedp.NoModifyURL)
+	defer allocCancel()
+
+	browserCtx, browserCancel := chromedp.NewContext(allocCtx)
+	defer browserCancel()
+
+	if err := chromedp.Run(browserCtx); err != nil {
+		return nil, fmt.Errorf("session: connect via %s: %w", wsURL, err)
+	}
+
+	return captureFromBrowserContext(browserCtx, opts.CaptureWindow)
 }
 
 // AttachRunningChromeWithOptions is the configurable variant of
@@ -126,6 +192,13 @@ func AttachRunningChromeWithOptions(ctx context.Context, debugPort int, opts Att
 		return nil, fmt.Errorf("session: connect to chrome: %w", err)
 	}
 
+	return captureFromBrowserContext(browserCtx, opts.CaptureWindow)
+}
+
+// captureFromBrowserContext takes an already-connected chromedp browser
+// context and performs the IG-tab attach + header/cookie capture that
+// both AttachRunningChromeWithOptions and AttachViaWSEndpoint share.
+func captureFromBrowserContext(browserCtx context.Context, captureFor time.Duration) (*types.Session, error) {
 	targets, err := chromedp.Targets(browserCtx)
 	if err != nil {
 		return nil, fmt.Errorf("session: list targets: %w", err)
@@ -180,13 +253,12 @@ func AttachRunningChromeWithOptions(ctx context.Context, debugPort int, opts Att
 
 	cookies := filterIGCookies(rawCookies)
 
-	// Listen for network events for up to opts.CaptureWindow, but cut out
-	// early if the caller cancels the outer context.
+	// Listen for network events for up to captureFor, but cut out early
+	// if the caller cancels the outer context.
 	select {
-	case <-time.After(opts.CaptureWindow):
-	case <-ctx.Done():
+	case <-time.After(captureFor):
+	case <-browserCtx.Done():
 	}
-	// Stop listening so our goroutine can exit cleanly.
 	listenCancel()
 
 	headers, queryHashes, docIDs := cap.snapshot()

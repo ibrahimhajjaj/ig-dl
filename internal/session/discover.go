@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -93,13 +94,32 @@ func DiscoverAllActivePorts() []*ActivePort {
 	return out
 }
 
-// IsLive probes /json/version on the discovered port to check that CDP
-// is actually answering — DevToolsActivePort files often linger after
-// a debug browser is closed.
+// IsLive probes the discovered port to check that CDP is actually
+// answering — DevToolsActivePort files often linger after a debug
+// browser is closed.
+//
+// Two protocol shapes are considered live:
+//   - Classic `--remote-debugging-port`: /json/version returns 200.
+//   - Chrome M144 toggle: /json/version returns 404 but a TCP
+//     connection succeeds AND a specific WebSocket path was recorded.
 func (a *ActivePort) IsLive(ctx context.Context) bool {
 	if a == nil {
 		return false
 	}
+	// Fast path: can we even open a TCP connection?
+	d := net.Dialer{Timeout: 500 * time.Millisecond}
+	conn, err := d.DialContext(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", a.Port))
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	// If the DevToolsActivePort file recorded a WSPath (M144 toggle
+	// shape), TCP connect is enough — CDP will handle the ws upgrade
+	// directly and /json/version isn't exposed.
+	if a.WSPath != "" {
+		return true
+	}
+	// Classic shape: require /json/version to return 200.
 	client := &http.Client{Timeout: 500 * time.Millisecond}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		fmt.Sprintf("http://127.0.0.1:%d/json/version", a.Port), nil)
