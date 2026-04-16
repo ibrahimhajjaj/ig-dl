@@ -12,14 +12,14 @@ import (
 // --- Tool input/output schemas ---
 
 type downloadURLArgs struct {
-	URL    string `json:"url" jsonschema:"required,description=Instagram URL (post, reel, story, highlight)"`
-	OutDir string `json:"out_dir,omitempty" jsonschema:"description=Override config OutDir"`
+	URL    string `json:"url" jsonschema:"Instagram URL: post, reel, story, or highlight"`
+	OutDir string `json:"out_dir,omitempty" jsonschema:"override config OutDir"`
 }
 
 type downloadUserArgs struct {
-	Handle  string   `json:"handle" jsonschema:"required,description=Instagram username (without the @)"`
+	Handle  string   `json:"handle" jsonschema:"Instagram username without the @"`
 	OutDir  string   `json:"out_dir,omitempty"`
-	Include []string `json:"include,omitempty" jsonschema:"description=Stages to include: posts, reels, stories, highlights"`
+	Include []string `json:"include,omitempty" jsonschema:"stages to include: posts reels stories highlights"`
 }
 
 type downloadSavedArgs struct {
@@ -29,7 +29,7 @@ type downloadSavedArgs struct {
 type sessionStatusArgs struct{}
 
 type loginArgs struct {
-	Import string `json:"import,omitempty" jsonschema:"description=Path to session.json exported by the companion extension"`
+	Import string `json:"import,omitempty" jsonschema:"path to session.json exported by the companion extension"`
 }
 
 type loginResult struct {
@@ -145,8 +145,14 @@ func okResult(payload any) *mcpsdk.CallToolResult {
 }
 
 func errorResult(err error) *mcpsdk.CallToolResult {
+	cat := core.Classify(err)
+	payload := map[string]string{
+		"category": string(cat),
+		"message":  err.Error(),
+	}
+	blob, _ := json.Marshal(payload)
 	return &mcpsdk.CallToolResult{
 		IsError: true,
-		Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: err.Error()}},
+		Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: string(blob)}},
 	}
 }

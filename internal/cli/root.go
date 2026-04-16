@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/ibrhajjaj/ig-dl/internal/config"
 	"github.com/ibrhajjaj/ig-dl/internal/core"
@@ -113,23 +112,12 @@ func signalCtx() (context.Context, context.CancelFunc) {
 	return context.WithCancel(context.Background())
 }
 
-// exitCodeFor maps a bubbled error to the spec's exit-code table
-// (2 no-session, 3 backend-missing, 4 auth, 5 rate-limited, 1 generic).
+// exitCodeFor maps a bubbled error to the spec's exit-code table via
+// core.Classify, so the CLI and the MCP server share one taxonomy.
 func exitCodeFor(err error) int {
 	if err == nil {
 		return 0
 	}
-	msg := strings.ToLower(err.Error())
-	switch {
-	case strings.Contains(msg, "no session"):
-		return 2
-	case strings.Contains(msg, "executable file not found") || strings.Contains(msg, "backend missing"):
-		return 3
-	case strings.Contains(msg, "auth failed") || strings.Contains(msg, "login required") || strings.Contains(msg, "401") || strings.Contains(msg, "403"):
-		return 4
-	case strings.Contains(msg, "rate limit") || strings.Contains(msg, "429"):
-		return 5
-	}
 	fmt.Fprintln(os.Stderr, err)
-	return 1
+	return core.ExitCode(core.Classify(err))
 }
