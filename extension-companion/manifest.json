@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "ig-dl session exporter",
+  "description": "Captures your Instagram session (cookies + rotating API headers) and exports it as a JSON file for the ig-dl CLI.",
+  "version": "0.1.0",
+  "background": {
+    "service_worker": "js/bg.js"
+  },
+  "permissions": [
+    "cookies",
+    "storage",
+    "webRequest",
+    "downloads"
+  ],
+  "host_permissions": [
+    "https://*.instagram.com/*"
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  }
+}

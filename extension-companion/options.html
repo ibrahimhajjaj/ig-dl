@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ig-dl session exporter</title>
+  <link rel="stylesheet" href="css/options.css">
+</head>
+<body>
+  <main class="page">
+    <h1>ig-dl session exporter</h1>
+    <p class="lede">
+      Export your current Instagram browser session (cookies + captured API
+      headers) as a JSON file the <code>ig-dl</code> CLI can import.
+    </p>
+    <p class="hint">
+      Before clicking: open <a href="https://www.instagram.com/" target="_blank" rel="noopener">instagram.com</a>,
+      make sure you are logged in, then scroll around or visit a profile so the
+      extension can observe the rotating headers. Then come back here and export.
+    </p>
+    <button id="export-btn" type="button">Export session for CLI</button>
+    <div id="status" role="status" aria-live="polite"></div>
+    <p class="fineprint">
+      The downloaded file contains your Instagram session cookies. Treat it like
+      a password — anyone with it can act as you on Instagram until the session
+      expires.
+    </p>
+  </main>
+  <script src="js/options.js"></script>
+</body>
+</html>
