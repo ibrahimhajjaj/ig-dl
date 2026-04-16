@@ -99,10 +99,11 @@ func registerTools(srv *mcpsdk.Server, baseOpts core.Options) {
 			out := &loginResult{Authed: true, Source: "imported", Message: "session imported"}
 			return okResult(out), out, nil
 		}
-		if err := core.Login(ctx, baseOpts); err != nil {
+		source, err := core.Login(ctx, baseOpts)
+		if err != nil {
 			return errorResult(err), nil, nil
 		}
-		out := &loginResult{Authed: true, Source: "cdp", Message: "session captured from Chrome"}
+		out := &loginResult{Authed: true, Source: source, Message: fmt.Sprintf("session captured from %s", source)}
 		return okResult(out), out, nil
 	})
 }

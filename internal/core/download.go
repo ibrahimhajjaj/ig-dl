@@ -201,19 +201,25 @@ func SessionStatus(ctx context.Context, opt Options) (authed bool, ageSeconds fl
 // SessionPath + writes the Netscape cookies file. It tries the
 // DevToolsActivePort discovery path first (chrome://inspect toggle,
 // works against the real profile), then falls back to the fixed debug
-// port configured in config.toml.
-func Login(ctx context.Context, opt Options) error {
+// port configured in config.toml. Returns a human-readable source
+// label naming which browser actually produced the session.
+func Login(ctx context.Context, opt Options) (source string, err error) {
 	s, ap, derr := session.AttachDiscovered(ctx, "")
 	if derr != nil {
-		s, err := session.AttachRunningChrome(ctx, opt.Config.ChromeDebugPort)
-		if err != nil {
-			return fmt.Errorf("attach browser on :%d (also tried DevToolsActivePort discovery: %v): %w",
-				opt.Config.ChromeDebugPort, derr, err)
+		s2, ferr := session.AttachRunningChrome(ctx, opt.Config.ChromeDebugPort)
+		if ferr != nil {
+			return "", fmt.Errorf("attach browser on :%d (also tried DevToolsActivePort discovery: %v): %w",
+				opt.Config.ChromeDebugPort, derr, ferr)
 		}
-		return persist(opt, s)
+		if perr := persist(opt, s2); perr != nil {
+			return "", perr
+		}
+		return fmt.Sprintf("fixed-port:%d", opt.Config.ChromeDebugPort), nil
 	}
-	_ = ap // callers that want to log which browser was used can call AttachDiscovered directly
-	return persist(opt, s)
+	if err := persist(opt, s); err != nil {
+		return "", err
+	}
+	return string(ap.Browser), nil
 }
 
 func persist(opt Options, s *types.Session) error {

@@ -26,10 +26,11 @@ load a session.json produced by the companion extension.`,
 				fmt.Println("session imported")
 				return nil
 			}
-			if err := core.Login(cmd.Context(), opts); err != nil {
+			source, err := core.Login(cmd.Context(), opts)
+			if err != nil {
 				return err
 			}
-			fmt.Println("session captured from Chrome")
+			fmt.Printf("session captured from %s\n", source)
 			return nil
 		},
 	}
