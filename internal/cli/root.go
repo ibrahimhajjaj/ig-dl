@@ -48,6 +48,7 @@ and shells out to gallery-dl or yt-dlp for actual media fetching.`,
 	root.AddCommand(newLogoutCmd())
 	root.AddCommand(newMCPCmd())
 	root.AddCommand(newStatusCmd())
+	root.AddCommand(newBrowsersCmd())
 	return root
 }
 

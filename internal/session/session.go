@@ -47,11 +47,18 @@ var (
 // The supplied context bounds the CDP attempt; the importer is a
 // straightforward file read and does not consult it.
 func Load(ctx context.Context, sessionJSONPath string, debugPort int) (*types.Session, error) {
-	// Primary: attach to a running Chrome.
+	// 1. Discovery path: read DevToolsActivePort from any known browser's
+	//    user-data-dir. This is the chrome://inspect/#remote-debugging
+	//    flow — works against the real profile, no launch flags needed.
+	if s, _, err := AttachDiscovered(ctx, ""); err == nil {
+		return s, nil
+	}
+	// 2. Fixed-port path: attach to a browser launched explicitly with
+	//    --remote-debugging-port=<debugPort> and --user-data-dir=<fresh>.
 	if s, err := AttachRunningChrome(ctx, debugPort); err == nil {
 		return s, nil
 	}
-	// Fallback: JSON import.
+	// 3. Fallback: JSON import from the companion extension.
 	s, importErr := Import(sessionJSONPath)
 	if importErr == nil {
 		return s, nil

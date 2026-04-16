@@ -178,27 +178,45 @@ func DownloadSaved(ctx context.Context, opt Options) (*Result, error) {
 }
 
 // SessionStatus reports whether a usable session exists and how old it
-// is. It does not attempt a fresh CDP attach, so this is cheap.
+// is. It tries importer first (cheapest), then DevToolsActivePort
+// discovery (fast, no launch flag), and finally a fixed-port probe.
 func SessionStatus(ctx context.Context, opt Options) (authed bool, ageSeconds float64, source string, err error) {
 	s, ierr := session.Import(opt.Config.SessionPath)
 	if ierr == nil {
 		return true, session.Age(s).Seconds(), "imported", nil
 	}
-	// Try CDP as an existence probe (a fast attach).
-	s, cerr := session.AttachRunningChrome(ctx, opt.Config.ChromeDebugPort)
-	if cerr == nil {
-		return true, session.Age(s).Seconds(), "cdp", nil
+	// Discovery probe (checks if any known browser has CDP enabled
+	// without needing a launch flag).
+	if s, ap, derr := session.AttachDiscovered(ctx, ""); derr == nil && s != nil {
+		return true, session.Age(s).Seconds(), "cdp:" + string(ap.Browser), nil
+	}
+	// Fixed-port probe (fallback).
+	if s, cerr := session.AttachRunningChrome(ctx, opt.Config.ChromeDebugPort); cerr == nil {
+		return true, session.Age(s).Seconds(), "cdp:fixed-port", nil
 	}
 	return false, 0, "", nil
 }
 
 // Login forces a fresh session capture via CDP and persists it to
-// SessionPath + writes the Netscape cookies file.
+// SessionPath + writes the Netscape cookies file. It tries the
+// DevToolsActivePort discovery path first (chrome://inspect toggle,
+// works against the real profile), then falls back to the fixed debug
+// port configured in config.toml.
 func Login(ctx context.Context, opt Options) error {
-	s, err := session.AttachRunningChrome(ctx, opt.Config.ChromeDebugPort)
-	if err != nil {
-		return fmt.Errorf("attach browser on :%d: %w", opt.Config.ChromeDebugPort, err)
+	s, ap, derr := session.AttachDiscovered(ctx, "")
+	if derr != nil {
+		s, err := session.AttachRunningChrome(ctx, opt.Config.ChromeDebugPort)
+		if err != nil {
+			return fmt.Errorf("attach browser on :%d (also tried DevToolsActivePort discovery: %v): %w",
+				opt.Config.ChromeDebugPort, derr, err)
+		}
+		return persist(opt, s)
 	}
+	_ = ap // callers that want to log which browser was used can call AttachDiscovered directly
+	return persist(opt, s)
+}
+
+func persist(opt Options, s *types.Session) error {
 	if err := session.Save(s, opt.Config.SessionPath); err != nil {
 		return fmt.Errorf("save session: %w", err)
 	}

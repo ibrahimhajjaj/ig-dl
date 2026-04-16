@@ -29,10 +29,11 @@ brew install gallery-dl yt-dlp
 ig-dl <url>                 # single post, reel, story, or highlight
 ig-dl user <handle>         # all content for a profile
 ig-dl saved                 # your saved collection
-ig-dl login                 # capture session from running Chrome
+ig-dl login                 # capture session from running browser
 ig-dl login --import <path> # import session.json from the companion extension
 ig-dl logout                # clear cached session + cookies
 ig-dl status                # show session state
+ig-dl browsers              # list Chromium browsers with CDP enabled
 ig-dl mcp                   # start MCP server on stdio
 ```
 
@@ -40,11 +41,33 @@ Global flags: `--out <dir>`, `--json`.
 
 ## Auth: getting a session
 
-### Primary path — attach to a running Chromium-based browser
+### Recommended path — toggle CDP inside your real browser (no relaunch)
 
-Any browser that speaks the Chrome DevTools Protocol works: **Chrome**,
-**Edge**, **Brave**, **Arc**, **Vivaldi**, **Chromium**. Launch it with the
-remote debugging port open, log into Instagram, then run `ig-dl login`:
+Chromium shipped a permission-based live-attach flow in 2025. No
+`--remote-debugging-port` launch flag, no `--user-data-dir`, no new
+profile. Your real browser with all your real logins stays as is:
+
+```
+1. Open your browser (Chrome / Edge / Brave / …)
+2. Visit  chrome://inspect/#remote-debugging
+          (or edge://inspect/…, brave://inspect/…)
+3. Toggle "Enable Remote Debugging" on
+4. ./ig-dl browsers     # confirms your browser shows as [live]
+5. ./ig-dl login        # captures session against the real profile
+```
+
+`ig-dl` reads the browser's `DevToolsActivePort` file to discover the
+dynamic port it picked, so no config is needed.
+
+### Alternative path — launch the browser with `--remote-debugging-port`
+
+Useful if you want CDP always-on without the UI toggle.
+
+Chromium-based browsers (Chrome 136+ / Edge 136+) silently ignore
+`--remote-debugging-port` when pointed at your default user-data-dir, as
+a security hardening. Pair the debug port flag with a fresh
+`--user-data-dir` — you'll sign into Instagram once inside that
+isolated profile and ig-dl attaches to it.
 
 **Important:** Chromium-based browsers (since Chrome 136 / Edge 136, late
 2025) silently ignore `--remote-debugging-port` when pointed at your

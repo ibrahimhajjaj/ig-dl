@@ -73,6 +73,27 @@ func AttachRunningChrome(ctx context.Context, debugPort int) (*types.Session, er
 	return AttachRunningChromeWithOptions(ctx, debugPort, AttachOptions{})
 }
 
+// AttachDiscovered tries to find a running Chromium-based browser that
+// exposes CDP via its DevToolsActivePort file (the
+// chrome://inspect/#remote-debugging path) and attaches to it. On
+// success it returns a *types.Session plus the discovered ActivePort so
+// callers can report the source to the user.
+//
+// This is the preferred attach mode post-Chrome 136: no explicit
+// --remote-debugging-port launch flag required, works against the user's
+// real profile, sessions and logins included.
+func AttachDiscovered(ctx context.Context, preferred Browser) (*types.Session, *ActivePort, error) {
+	ap, err := DiscoverActivePort(preferred)
+	if err != nil {
+		return nil, nil, err
+	}
+	s, err := AttachRunningChromeWithOptions(ctx, ap.Port, AttachOptions{})
+	if err != nil {
+		return nil, ap, err
+	}
+	return s, ap, nil
+}
+
 // AttachRunningChromeWithOptions is the configurable variant of
 // AttachRunningChrome. See AttachOptions for the knobs.
 func AttachRunningChromeWithOptions(ctx context.Context, debugPort int, opts AttachOptions) (*types.Session, error) {
