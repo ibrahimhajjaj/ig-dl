@@ -1,0 +1,17 @@
+# Build output
+/ig-dl
+/bin/
+/dist/
+
+# Test / coverage
+*.test
+*.out
+coverage.*
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Downloads produced at runtime by smoke tests or dev use
+/downloads/
