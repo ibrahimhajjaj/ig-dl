@@ -46,25 +46,47 @@ Any browser that speaks the Chrome DevTools Protocol works: **Chrome**,
 **Edge**, **Brave**, **Arc**, **Vivaldi**, **Chromium**. Launch it with the
 remote debugging port open, log into Instagram, then run `ig-dl login`:
 
+**Important:** Chromium-based browsers (since Chrome 136 / Edge 136, late
+2025) silently ignore `--remote-debugging-port` when pointed at your
+default user-data-dir, as a security hardening. Always pair the debug
+port flag with a fresh `--user-data-dir` — you'll sign into Instagram
+once inside that isolated profile and ig-dl attaches to it.
+
 ```sh
 # macOS — Chrome
 /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
-  --remote-debugging-port=9222 &
+  --remote-debugging-port=9222 \
+  --user-data-dir="$HOME/.ig-dl/browser-profile" &
 
 # macOS — Edge
 /Applications/Microsoft\ Edge.app/Contents/MacOS/Microsoft\ Edge \
-  --remote-debugging-port=9222 &
+  --remote-debugging-port=9222 \
+  --user-data-dir="$HOME/.ig-dl/browser-profile" &
 
 # macOS — Brave
 /Applications/Brave\ Browser.app/Contents/MacOS/Brave\ Browser \
-  --remote-debugging-port=9222 &
+  --remote-debugging-port=9222 \
+  --user-data-dir="$HOME/.ig-dl/browser-profile" &
+```
 
-# Open instagram.com, log in, then:
+Inside the new browser window, open `instagram.com` and log in (it's a
+fresh profile, so you won't carry over your main session — that's the
+point). Then, in a terminal:
+
+```sh
 ig-dl login
 ```
 
-Only one browser can bind port 9222 at a time — close other debug sessions
-first, or override via `chrome_debug_port` in `~/.ig-dl/config.toml`.
+Verify the debug port is actually listening — if this returns 404 or
+nothing, the `--user-data-dir` flag is missing:
+
+```sh
+curl -s http://localhost:9222/json/version | head -3
+```
+
+Only one browser at a time can bind port 9222 — close other debug
+sessions first, or override via `chrome_debug_port` in
+`~/.ig-dl/config.toml`.
 
 ### Fallback path — companion extension
 

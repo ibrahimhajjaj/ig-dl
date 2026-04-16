@@ -200,7 +200,11 @@ func probeDebugEndpoint(ctx context.Context, client *http.Client, baseURL string
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("%s returned status %d", baseURL+"/json/version", resp.StatusCode)
+		// Since Chrome 136 / Edge 136, the debug port binds but the CDP
+		// endpoint is disabled when the browser uses the default
+		// user-data-dir. Surfacing this hint here saves users a long
+		// debugging session.
+		return fmt.Errorf("%s returned status %d (if the port is bound but CDP isn't answering, relaunch the browser with --user-data-dir=<fresh-path> alongside --remote-debugging-port; see README)", baseURL+"/json/version", resp.StatusCode)
 	}
 	return nil
 }

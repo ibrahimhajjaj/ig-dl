@@ -32,10 +32,16 @@ need yt-dlp
 
 step "1. CDP debug-port probe"
 if ! curl -sf http://localhost:9222/json/version >/dev/null; then
-  echo "No Chromium-based browser is listening on :9222. Start one with:" >&2
-  echo "  Chrome: /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222" >&2
-  echo "  Edge:   /Applications/Microsoft\\ Edge.app/Contents/MacOS/Microsoft\\ Edge --remote-debugging-port=9222" >&2
-  echo "  Brave:  /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser --remote-debugging-port=9222" >&2
+  echo "No Chromium-based browser is answering CDP on :9222." >&2
+  echo "Start one with a FRESH profile dir (Chrome 136+/Edge 136+ ignore" >&2
+  echo "--remote-debugging-port on the default profile):" >&2
+  echo >&2
+  echo "  Chrome: /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome \\" >&2
+  echo "            --remote-debugging-port=9222 --user-data-dir=\"\$HOME/.ig-dl/browser-profile\"" >&2
+  echo "  Edge:   /Applications/Microsoft\\ Edge.app/Contents/MacOS/Microsoft\\ Edge \\" >&2
+  echo "            --remote-debugging-port=9222 --user-data-dir=\"\$HOME/.ig-dl/browser-profile\"" >&2
+  echo "  Brave:  /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser \\" >&2
+  echo "            --remote-debugging-port=9222 --user-data-dir=\"\$HOME/.ig-dl/browser-profile\"" >&2
   exit 1
 fi
 
