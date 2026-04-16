@@ -1,0 +1,64 @@
+version: 2
+
+project_name: ig-dl
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: ig-dl
+    main: ./cmd/ig-dl
+    binary: ig-dl
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+
+archives:
+  - formats: [ tar.gz ]
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [ zip ]
+    files:
+      - README.md
+      - LICENSE*
+      - extension-companion/**/*
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-dev"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+brews:
+  - name: ig-dl
+    homepage: "https://github.com/ibrhajjaj/ig-dl"
+    description: "Download Instagram content from the terminal. CLI + MCP server."
+    license: MIT
+    dependencies:
+      - name: gallery-dl
+        type: optional
+      - name: yt-dlp
+        type: optional
+    install: |
+      bin.install "ig-dl"
+    test: |
+      system "#{bin}/ig-dl", "--help"
