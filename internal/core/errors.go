@@ -1,6 +1,12 @@
 package core
 
-import "strings"
+import (
+	"errors"
+	"strings"
+
+	"github.com/ibrhajjaj/ig-dl/internal/backend"
+	"github.com/ibrhajjaj/ig-dl/internal/types"
+)
 
 // ErrorCategory classifies a failure into one of the stable categories
 // the CLI and MCP both surface. The zero value means "generic failure".
@@ -20,6 +26,22 @@ const (
 func Classify(err error) ErrorCategory {
 	if err == nil {
 		return ""
+	}
+	// Prefer the typed category from backend.ExecError if one bubbled up —
+	// the runner already did the hard categorisation work, no need to
+	// re-string-match its message.
+	var ee *backend.ExecError
+	if errors.As(err, &ee) {
+		switch ee.Category {
+		case types.AuthErrNoSession:
+			return ErrCategoryNoSession
+		case types.AuthErrBackendMissing:
+			return ErrCategoryBackendMissing
+		case types.AuthErrAuthFailed:
+			return ErrCategoryAuthFailed
+		case types.AuthErrRateLimited:
+			return ErrCategoryRateLimited
+		}
 	}
 	msg := strings.ToLower(err.Error())
 	switch {

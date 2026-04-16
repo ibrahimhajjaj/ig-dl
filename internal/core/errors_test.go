@@ -2,7 +2,11 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"testing"
+
+	"github.com/ibrhajjaj/ig-dl/internal/backend"
+	"github.com/ibrhajjaj/ig-dl/internal/types"
 )
 
 func TestClassify(t *testing.T) {
@@ -24,6 +28,10 @@ func TestClassify(t *testing.T) {
 		{errors.New("HTTP Error 429"), ErrCategoryRateLimited},
 		{errors.New("rate limit exceeded"), ErrCategoryRateLimited},
 		{errors.New("something totally else"), ErrCategoryGeneric},
+		{&backend.ExecError{Category: types.AuthErrAuthFailed, ExitCode: 4, Stderr: "login page"}, ErrCategoryAuthFailed},
+		{&backend.ExecError{Category: types.AuthErrRateLimited, ExitCode: 1, Stderr: "429"}, ErrCategoryRateLimited},
+		{&backend.ExecError{Category: types.AuthErrBackendMissing, ExitCode: 1}, ErrCategoryBackendMissing},
+		{fmt.Errorf("wrapped: %w", &backend.ExecError{Category: types.AuthErrAuthFailed}), ErrCategoryAuthFailed},
 	}
 	for _, tc := range cases {
 		name := "nil"
