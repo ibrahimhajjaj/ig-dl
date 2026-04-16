@@ -13,6 +13,8 @@ func TestClassify(t *testing.T) {
 		{nil, ""},
 		{errors.New("no session available"), ErrCategoryNoSession},
 		{errors.New("ErrNoSession"), ErrCategoryNoSession},
+		{errors.New("no usable session (chrome attach and import both failed)"), ErrCategoryNoSession},
+		{errors.New(`open /Users/me/.ig-dl/session.json: no such file or directory`), ErrCategoryNoSession},
 		{errors.New(`exec: "gallery-dl": executable file not found in $PATH`), ErrCategoryBackendMissing},
 		{errors.New("backend missing"), ErrCategoryBackendMissing},
 		{errors.New("HTTP Error 401"), ErrCategoryAuthFailed},

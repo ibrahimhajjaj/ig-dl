@@ -77,6 +77,12 @@ func loadOpts() (core.Options, error) {
 	}, nil
 }
 
+func emitJSON(payload any) error {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(payload)
+}
+
 func emit(result *core.Result) error {
 	if !flagJSON {
 		if result == nil {

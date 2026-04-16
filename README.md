@@ -10,7 +10,7 @@ stdio, so Claude Code can drive it as tools.
 ## Install
 
 ```sh
-# From source (requires Go 1.24+)
+# From source (requires Go 1.26+)
 go install github.com/ibrhajjaj/ig-dl/cmd/ig-dl@latest
 
 # Or build locally

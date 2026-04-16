@@ -23,7 +23,10 @@ func Classify(err error) ErrorCategory {
 	}
 	msg := strings.ToLower(err.Error())
 	switch {
-	case strings.Contains(msg, "no session") || strings.Contains(msg, "errnosession"):
+	case strings.Contains(msg, "no session") ||
+		strings.Contains(msg, "no usable session") ||
+		strings.Contains(msg, "errnosession") ||
+		strings.Contains(msg, "session.json"):
 		return ErrCategoryNoSession
 	case strings.Contains(msg, "executable file not found") ||
 		strings.Contains(msg, "backend missing") ||

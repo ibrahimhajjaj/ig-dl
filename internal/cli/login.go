@@ -68,6 +68,13 @@ func newStatusCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if flagJSON {
+				return emitJSON(map[string]any{
+					"authed":      authed,
+					"source":      source,
+					"age_seconds": age,
+				})
+			}
 			if !authed {
 				fmt.Println("not authed — run `ig-dl login`")
 				return nil
