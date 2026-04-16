@@ -36,7 +36,10 @@ type Config struct {
 	ArchiveDir string `toml:"archive_dir"`
 	// Concurrency is the default size of the profile-bulk worker pool.
 	Concurrency int `toml:"concurrency"`
-	// ChromeDebugPort is the port the CDP attacher connects to.
+	// ChromeDebugPort is the port the CDP attacher connects to. Any
+	// Chromium-based browser works — Chrome, Edge, Brave, Arc, Vivaldi,
+	// and Chromium itself all expose the same Chrome DevTools Protocol
+	// when launched with --remote-debugging-port.
 	ChromeDebugPort int `toml:"chrome_debug_port"`
 	// Backend holds overridable paths to the external downloader binaries.
 	Backend BackendPaths `toml:"backend"`

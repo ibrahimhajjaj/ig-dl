@@ -40,18 +40,31 @@ Global flags: `--out <dir>`, `--json`.
 
 ## Auth: getting a session
 
-### Primary path — attach to a running Chrome
+### Primary path — attach to a running Chromium-based browser
 
-Launch Chrome with the remote debugging port open, log into Instagram, then
-run `ig-dl login`:
+Any browser that speaks the Chrome DevTools Protocol works: **Chrome**,
+**Edge**, **Brave**, **Arc**, **Vivaldi**, **Chromium**. Launch it with the
+remote debugging port open, log into Instagram, then run `ig-dl login`:
 
 ```sh
-# macOS
+# macOS — Chrome
 /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
   --remote-debugging-port=9222 &
+
+# macOS — Edge
+/Applications/Microsoft\ Edge.app/Contents/MacOS/Microsoft\ Edge \
+  --remote-debugging-port=9222 &
+
+# macOS — Brave
+/Applications/Brave\ Browser.app/Contents/MacOS/Brave\ Browser \
+  --remote-debugging-port=9222 &
+
 # Open instagram.com, log in, then:
 ig-dl login
 ```
+
+Only one browser can bind port 9222 at a time — close other debug sessions
+first, or override via `chrome_debug_port` in `~/.ig-dl/config.toml`.
 
 ### Fallback path — companion extension
 

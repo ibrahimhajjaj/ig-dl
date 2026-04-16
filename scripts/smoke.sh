@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
 # Manual end-to-end smoke checklist for ig-dl. Not automated — requires a
-# logged-in Instagram session in a Chrome instance launched with
-# --remote-debugging-port=9222, and `gallery-dl` + `yt-dlp` on PATH.
+# logged-in Instagram session in any Chromium-based browser (Chrome, Edge,
+# Brave, Arc, Vivaldi, Chromium) launched with --remote-debugging-port=9222,
+# plus `gallery-dl` + `yt-dlp` on PATH.
 #
 # Usage:
 #   IG_DL_BIN=./ig-dl ./scripts/smoke.sh <test-handle> <test-post-url>
@@ -29,10 +30,12 @@ need "$BIN"
 need gallery-dl
 need yt-dlp
 
-step "1. Chrome debug port probe"
+step "1. CDP debug-port probe"
 if ! curl -sf http://localhost:9222/json/version >/dev/null; then
-  echo "Chrome is not listening on :9222. Start it with:" >&2
-  echo "  /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222" >&2
+  echo "No Chromium-based browser is listening on :9222. Start one with:" >&2
+  echo "  Chrome: /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222" >&2
+  echo "  Edge:   /Applications/Microsoft\\ Edge.app/Contents/MacOS/Microsoft\\ Edge --remote-debugging-port=9222" >&2
+  echo "  Brave:  /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser --remote-debugging-port=9222" >&2
   exit 1
 fi
 

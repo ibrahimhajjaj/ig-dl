@@ -27,13 +27,15 @@ var (
 	// available at all" condition the CLI surfaces as exit code 2.
 	ErrNoSession = errors.New("session: no usable session (chrome attach and import both failed)")
 
-	// ErrNoIGTab indicates that Chrome was reachable on the debug port
+	// ErrNoIGTab indicates the browser was reachable on the debug port
 	// but no open tab matched an instagram.com host.
-	ErrNoIGTab = errors.New("session: no instagram.com tab found in attached Chrome")
+	ErrNoIGTab = errors.New("session: no instagram.com tab found in attached browser")
 
-	// ErrCDPUnreachable indicates that the debug endpoint at
-	// http://localhost:<port>/json/version could not be reached.
-	ErrCDPUnreachable = errors.New("session: Chrome debug endpoint unreachable")
+	// ErrCDPUnreachable indicates the debug endpoint at
+	// http://localhost:<port>/json/version could not be reached. Any
+	// Chromium-based browser (Chrome, Edge, Brave, etc.) launched with
+	// --remote-debugging-port serves it.
+	ErrCDPUnreachable = errors.New("session: CDP debug endpoint unreachable")
 )
 
 // Load resolves an authenticated session. It first tries to attach to a

@@ -197,7 +197,7 @@ func SessionStatus(ctx context.Context, opt Options) (authed bool, ageSeconds fl
 func Login(ctx context.Context, opt Options) error {
 	s, err := session.AttachRunningChrome(ctx, opt.Config.ChromeDebugPort)
 	if err != nil {
-		return fmt.Errorf("attach chrome on :%d: %w", opt.Config.ChromeDebugPort, err)
+		return fmt.Errorf("attach browser on :%d: %w", opt.Config.ChromeDebugPort, err)
 	}
 	if err := session.Save(s, opt.Config.SessionPath); err != nil {
 		return fmt.Errorf("save session: %w", err)
