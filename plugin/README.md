@@ -20,19 +20,23 @@ the plugin.
 
 ## Install
 
-Local (from this repo):
+Once the repo is public on GitHub:
+
+```
+/plugin marketplace add ibrahimhajjaj/ig-dl
+/plugin install ig-dl@ig-dl-marketplace
+```
+
+Local (from this repo, before pushing):
 
 ```sh
 cd /path/to/ig-downloader
 claude plugin install ./plugin
 ```
 
-Once the repo is public on GitHub and you've added a `marketplace.json`:
-
-```sh
-/plugin marketplace add ibrahimhajjaj/ig-dl
-/plugin install ig-dl@ibrahimhajjaj-ig-dl
-```
+The marketplace manifest lives at the repo root
+(`.claude-plugin/marketplace.json`); the plugin itself lives at
+`./plugin/`. Both are referenced by the commands above automatically.
 
 ## What you get
 

@@ -1,0 +1,25 @@
+{
+  "name": "ig-dl-marketplace",
+  "owner": {
+    "name": "Ibrahim Hajjaj"
+  },
+  "metadata": {
+    "description": "Marketplace for the ig-dl Instagram downloader Claude Code plugin.",
+    "version": "0.1.2"
+  },
+  "plugins": [
+    {
+      "name": "ig-dl",
+      "source": "./plugin",
+      "description": "Instagram downloader — CLI + MCP server. 5 tools, 3 prompt templates, session capture against your real browser profile via the Chrome M144 chrome://inspect toggle.",
+      "version": "0.1.2",
+      "author": {
+        "name": "Ibrahim Hajjaj"
+      },
+      "homepage": "https://github.com/ibrahimhajjaj/ig-dl",
+      "repository": "https://github.com/ibrahimhajjaj/ig-dl",
+      "license": "MIT",
+      "keywords": ["instagram", "downloader", "mcp", "gallery-dl", "yt-dlp"]
+    }
+  ]
+}

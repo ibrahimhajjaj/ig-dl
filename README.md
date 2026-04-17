@@ -157,7 +157,23 @@ file. `[live]` = a debug-capable browser is currently answering; `[stale]`
 Handles both classic `--remote-debugging-port` shapes (line 1 port only)
 and the M144 toggle shape (line 1 port + line 2 WebSocket path).
 
-## Claude Code integration (MCP)
+## Claude Code integration
+
+### As a plugin (recommended)
+
+```
+/plugin marketplace add ibrahimhajjaj/ig-dl
+/plugin install ig-dl@ig-dl-marketplace
+```
+
+Registers the MCP server, two slash commands (`/ig-dl:setup`,
+`/ig-dl:diagnose`), and a skill that biases Claude toward ig-dl tools
+whenever you mention an Instagram URL. See `plugin/README.md` for the
+component breakdown.
+
+### As a raw MCP server
+
+If you don't want the slash commands / skill, add only the MCP server:
 
 ```sh
 claude mcp add ig-dl -- $(go env GOPATH)/bin/ig-dl mcp
