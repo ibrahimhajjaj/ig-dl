@@ -30,15 +30,6 @@ var igAPIHeaders = map[string]struct{}{
 	"x-instagram-ajax":  {},
 }
 
-// igHosts are the exact Instagram hostnames we consider "an IG tab" for
-// tab-picking and "an IG API request" for header capture.
-var igHosts = []string{
-	"www.instagram.com",
-	"instagram.com",
-	"i.instagram.com",
-	"api.instagram.com",
-}
-
 // captureWindow is the default duration we listen to network events after
 // attaching before returning the session. Callers that need a different
 // window use AttachRunningChromeWithOptions.
