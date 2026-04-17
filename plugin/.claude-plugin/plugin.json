@@ -1,0 +1,12 @@
+{
+  "name": "ig-dl",
+  "version": "0.1.2",
+  "description": "Instagram downloader — CLI + MCP server. Five tools, three prompt templates, session capture against your real browser profile via the Chrome M144 chrome://inspect toggle.",
+  "author": {
+    "name": "Ibrahim Hajjaj"
+  },
+  "homepage": "https://github.com/ibrahimhajjaj/ig-dl",
+  "repository": "https://github.com/ibrahimhajjaj/ig-dl",
+  "license": "MIT",
+  "keywords": ["instagram", "downloader", "mcp", "gallery-dl", "yt-dlp"]
+}

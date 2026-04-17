@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ig-dl": {
+      "command": "ig-dl",
+      "args": ["mcp"]
+    }
+  }
+}

@@ -1,0 +1,87 @@
+# ig-dl (Claude Code plugin)
+
+Wraps the `ig-dl` CLI as a Claude Code plugin. Installing this plugin
+registers the `ig-dl` MCP server (5 tools + 3 prompt templates) plus a
+couple of setup/diagnose slash commands.
+
+## Prerequisites
+
+`ig-dl` is not bundled with the plugin — Claude Code plugins don't
+auto-download Go binaries. Install it separately, first:
+
+```sh
+go install github.com/ibrahimhajjaj/ig-dl/cmd/ig-dl@latest
+# plus the external downloaders:
+brew install gallery-dl yt-dlp
+```
+
+Verify `which ig-dl gallery-dl yt-dlp` all resolve before installing
+the plugin.
+
+## Install
+
+Local (from this repo):
+
+```sh
+cd /path/to/ig-downloader
+claude plugin install ./plugin
+```
+
+Once the repo is public on GitHub and you've added a `marketplace.json`:
+
+```sh
+/plugin marketplace add ibrahimhajjaj/ig-dl
+/plugin install ig-dl@ibrahimhajjaj-ig-dl
+```
+
+## What you get
+
+**MCP tools** (callable by the LLM directly):
+
+| Tool | Purpose |
+|---|---|
+| `ig_download_url` | Single post / reel / story / highlight |
+| `ig_download_user` | Full profile with per-stage counts |
+| `ig_download_saved` | Your own saved collection |
+| `ig_session_status` | Is the session authed? How old? |
+| `ig_login` | Capture a fresh session (triggers browser permission dialog) |
+
+**MCP prompts** (user-selectable templates):
+
+- `/ig-dl:download_url` — pick a URL, get a guided download + summary
+- `/ig-dl:archive_profile` — back up a whole profile with per-stage reporting
+- `/ig-dl:session_health` — diagnose auth state, recommend remediation
+
+**Slash commands**:
+
+- `/ig-dl:setup` — first-time guided setup (binaries → CDP toggle → login)
+- `/ig-dl:diagnose` — health check across auth, browsers, backends
+
+**Skill**:
+
+- `using-ig-dl` — activates whenever the user mentions Instagram
+  URLs/downloads, biases Claude toward the MCP tools over ad-hoc
+  shell-outs.
+
+## File layout
+
+```
+plugin/
+├── .claude-plugin/plugin.json   # plugin metadata
+├── .mcp.json                    # MCP server config (spawns `ig-dl mcp`)
+├── commands/
+│   ├── setup.md
+│   └── diagnose.md
+├── skills/
+│   └── using-ig-dl/SKILL.md
+└── README.md                    # this file
+```
+
+## Notes
+
+- The plugin version tracks the `ig-dl` binary version (currently 0.1.2).
+- The MCP command entry is `{ "command": "ig-dl", "args": ["mcp"] }` — it
+  assumes `ig-dl` is on `PATH`. If you need a pinned path, edit
+  `.mcp.json` after install to set an absolute path.
+- Uninstalling the plugin removes the MCP registration + slash commands
+  but leaves `ig-dl` itself and `~/.ig-dl/` alone.
