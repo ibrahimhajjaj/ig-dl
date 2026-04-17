@@ -38,32 +38,38 @@ var (
 	ErrCDPUnreachable = errors.New("session: CDP debug endpoint unreachable")
 )
 
-// Load resolves an authenticated session. It first tries to attach to a
-// running Chrome on localhost:debugPort; if that fails for any reason it
-// falls through to reading and validating the JSON file at
-// sessionJSONPath. If both paths fail, ErrNoSession is returned (wrapping
-// the underlying import error when available).
+// Load resolves an authenticated session.
 //
-// The supplied context bounds the CDP attempt; the importer is a
-// straightforward file read and does not consult it.
+// Order of attempts (cheapest + dialog-free first):
+//
+//  1. Read sessionJSONPath. If it parses and contains cookies, use it.
+//     This is free and never triggers the browser's M144 permission
+//     dialog — the whole point of persisting the session after login.
+//  2. DevToolsActivePort discovery (CDP attach). Pops the M144
+//     permission dialog in the user's browser.
+//  3. Fixed-port CDP attach (legacy --remote-debugging-port flow).
+//
+// Callers wanting a forced CDP capture should call AttachDiscovered /
+// AttachRunningChrome directly (that is what `ig-dl login` does) rather
+// than Load — Load is the hot path used by every download command and
+// must not spam the user with permission dialogs.
 func Load(ctx context.Context, sessionJSONPath string, debugPort int) (*types.Session, error) {
-	// 1. Discovery path: read DevToolsActivePort from any known browser's
-	//    user-data-dir. This is the chrome://inspect/#remote-debugging
-	//    flow — works against the real profile, no launch flags needed.
+	// 1. Cached session on disk — always try first so repeated commands
+	//    within the session's lifetime don't re-trigger the M144 dialog.
+	if s, err := Import(sessionJSONPath); err == nil {
+		return s, nil
+	}
+	// 2. Discovery path. Real browser, real profile, but triggers the
+	//    M144 permission dialog — only reached when we have no cached
+	//    session to fall back on.
 	if s, _, err := AttachDiscovered(ctx, ""); err == nil {
 		return s, nil
 	}
-	// 2. Fixed-port path: attach to a browser launched explicitly with
-	//    --remote-debugging-port=<debugPort> and --user-data-dir=<fresh>.
+	// 3. Fixed-port path: --remote-debugging-port + --user-data-dir.
 	if s, err := AttachRunningChrome(ctx, debugPort); err == nil {
 		return s, nil
 	}
-	// 3. Fallback: JSON import from the companion extension.
-	s, importErr := Import(sessionJSONPath)
-	if importErr == nil {
-		return s, nil
-	}
-	return nil, fmt.Errorf("%w: import from %q failed: %v", ErrNoSession, sessionJSONPath, importErr)
+	return nil, fmt.Errorf("%w: import from %q failed and no live browser was reachable", ErrNoSession, sessionJSONPath)
 }
 
 // Save serialises s as pretty-printed JSON at path. The parent directory
