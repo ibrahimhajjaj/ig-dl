@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "ig-dl": {
-      "command": "ig-dl",
+      "command": "${HOME}/go/bin/ig-dl",
       "args": ["mcp"]
     }
   }

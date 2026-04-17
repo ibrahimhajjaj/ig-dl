@@ -83,9 +83,16 @@ plugin/
 
 ## Notes
 
-- The plugin version tracks the `ig-dl` binary version (currently 0.1.2).
-- The MCP command entry is `{ "command": "ig-dl", "args": ["mcp"] }` — it
-  assumes `ig-dl` is on `PATH`. If you need a pinned path, edit
-  `.mcp.json` after install to set an absolute path.
+- The plugin version tracks the `ig-dl` binary version (currently 0.1.5).
+- The MCP command entry uses `${HOME}/go/bin/ig-dl` (the default
+  `go install` location) rather than bare `ig-dl` because Claude Code's
+  MCP runner inherits the PATH from when the app launched — if you
+  added `~/go/bin` to your shell after launching Claude Code, a bare
+  `ig-dl` lookup will fail. The absolute form sidesteps that. If you
+  installed the binary somewhere else (e.g. `/usr/local/bin/ig-dl`
+  from a downloaded release), edit `.mcp.json` after install.
+- gallery-dl and yt-dlp lookups still rely on inherited PATH —
+  `/opt/homebrew/bin` is typically already there from Claude Code's
+  launch env, so no extra config needed for Homebrew users.
 - Uninstalling the plugin removes the MCP registration + slash commands
   but leaves `ig-dl` itself and `~/.ig-dl/` alone.
