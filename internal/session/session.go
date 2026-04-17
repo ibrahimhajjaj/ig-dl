@@ -16,7 +16,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/ibrhajjaj/ig-dl/internal/types"
+	"github.com/ibrahimhajjaj/ig-dl/internal/types"
 )
 
 // Sentinel errors exposed by the session package. Callers use errors.Is to

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ibrhajjaj/ig-dl/internal/config"
-	"github.com/ibrhajjaj/ig-dl/internal/core"
+	"github.com/ibrahimhajjaj/ig-dl/internal/config"
+	"github.com/ibrahimhajjaj/ig-dl/internal/core"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

@@ -17,7 +17,7 @@ import (
 	cdptarget "github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
 
-	"github.com/ibrhajjaj/ig-dl/internal/types"
+	"github.com/ibrahimhajjaj/ig-dl/internal/types"
 )
 
 // igAPIHeaders is the set of request headers we harvest from live IG API

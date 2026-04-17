@@ -4,7 +4,7 @@ package main
 import (
 	"os"
 
-	"github.com/ibrhajjaj/ig-dl/internal/cli"
+	"github.com/ibrahimhajjaj/ig-dl/internal/cli"
 )
 
 func main() {

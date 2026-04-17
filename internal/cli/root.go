@@ -9,8 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/ibrhajjaj/ig-dl/internal/config"
-	"github.com/ibrhajjaj/ig-dl/internal/core"
+	"github.com/ibrahimhajjaj/ig-dl/internal/config"
+	"github.com/ibrahimhajjaj/ig-dl/internal/core"
 	"github.com/spf13/cobra"
 )
 

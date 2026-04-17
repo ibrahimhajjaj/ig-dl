@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ibrhajjaj/ig-dl/internal/types"
+	"github.com/ibrahimhajjaj/ig-dl/internal/types"
 )
 
 // TestSaveImportRoundTrip writes a session to disk, reads it back through

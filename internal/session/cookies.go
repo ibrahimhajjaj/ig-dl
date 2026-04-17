@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ibrhajjaj/ig-dl/internal/types"
+	"github.com/ibrahimhajjaj/ig-dl/internal/types"
 )
 
 // WriteNetscape serialises the cookie jar inside s to the Netscape

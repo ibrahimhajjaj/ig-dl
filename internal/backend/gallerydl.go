@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/ibrhajjaj/ig-dl/internal/types"
+	"github.com/ibrahimhajjaj/ig-dl/internal/types"
 )
 
 // GalleryDL is a types.Backend that shells out to the `gallery-dl`

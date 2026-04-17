@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/ibrhajjaj/ig-dl/internal/types"
+	"github.com/ibrahimhajjaj/ig-dl/internal/types"
 )
 
 func TestParse(t *testing.T) {

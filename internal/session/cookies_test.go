@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ibrhajjaj/ig-dl/internal/types"
+	"github.com/ibrahimhajjaj/ig-dl/internal/types"
 )
 
 // TestWriteNetscape_Fixture exercises every branch of formatNetscapeLine

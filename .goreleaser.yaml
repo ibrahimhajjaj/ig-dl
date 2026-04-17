@@ -50,7 +50,7 @@ changelog:
 
 brews:
   - name: ig-dl
-    homepage: "https://github.com/ibrhajjaj/ig-dl"
+    homepage: "https://github.com/ibrahimhajjaj/ig-dl"
     description: "Download Instagram content from the terminal. CLI + MCP server."
     license: MIT
     dependencies:

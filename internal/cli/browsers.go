@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ibrhajjaj/ig-dl/internal/session"
+	"github.com/ibrahimhajjaj/ig-dl/internal/session"
 	"github.com/spf13/cobra"
 )
 

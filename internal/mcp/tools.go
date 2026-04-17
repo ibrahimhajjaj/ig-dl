@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ibrhajjaj/ig-dl/internal/core"
+	"github.com/ibrahimhajjaj/ig-dl/internal/core"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

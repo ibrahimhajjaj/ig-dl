@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/ibrhajjaj/ig-dl/internal/core"
+	"github.com/ibrahimhajjaj/ig-dl/internal/core"
 	"github.com/spf13/cobra"
 )
 

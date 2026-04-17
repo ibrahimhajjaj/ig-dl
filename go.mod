@@ -1,4 +1,4 @@
-module github.com/ibrhajjaj/ig-dl
+module github.com/ibrahimhajjaj/ig-dl
 
 go 1.26
 

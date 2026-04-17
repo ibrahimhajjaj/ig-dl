@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ibrhajjaj/ig-dl/internal/backend"
-	"github.com/ibrhajjaj/ig-dl/internal/config"
-	"github.com/ibrhajjaj/ig-dl/internal/router"
-	"github.com/ibrhajjaj/ig-dl/internal/session"
-	"github.com/ibrhajjaj/ig-dl/internal/types"
+	"github.com/ibrahimhajjaj/ig-dl/internal/backend"
+	"github.com/ibrahimhajjaj/ig-dl/internal/config"
+	"github.com/ibrahimhajjaj/ig-dl/internal/router"
+	"github.com/ibrahimhajjaj/ig-dl/internal/session"
+	"github.com/ibrahimhajjaj/ig-dl/internal/types"
 )
 
 // Progress is the optional callback front-ends use to surface structured

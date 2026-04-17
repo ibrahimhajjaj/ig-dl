@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ibrhajjaj/ig-dl/internal/types"
+	"github.com/ibrahimhajjaj/ig-dl/internal/types"
 )
 
 // Import reads and decodes a session.json file produced either by the

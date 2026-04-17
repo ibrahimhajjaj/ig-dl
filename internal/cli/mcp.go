@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"github.com/ibrhajjaj/ig-dl/internal/mcp"
+	"github.com/ibrahimhajjaj/ig-dl/internal/mcp"
 	"github.com/spf13/cobra"
 )
 

@@ -48,7 +48,7 @@ the above without writing the glue yourself, that's what `ig-dl` is.
 
 ```sh
 # From source (requires Go 1.26+)
-go install github.com/ibrhajjaj/ig-dl/cmd/ig-dl@latest
+go install github.com/ibrahimhajjaj/ig-dl/cmd/ig-dl@latest
 
 # Or build locally
 make install

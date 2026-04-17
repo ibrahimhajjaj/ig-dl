@@ -4,8 +4,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/ibrhajjaj/ig-dl/internal/backend"
-	"github.com/ibrhajjaj/ig-dl/internal/types"
+	"github.com/ibrahimhajjaj/ig-dl/internal/backend"
+	"github.com/ibrahimhajjaj/ig-dl/internal/types"
 )
 
 // ErrorCategory classifies a failure into one of the stable categories

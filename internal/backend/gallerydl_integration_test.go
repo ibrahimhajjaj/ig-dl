@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ibrhajjaj/ig-dl/internal/types"
+	"github.com/ibrahimhajjaj/ig-dl/internal/types"
 )
 
 // TestGalleryDL_VersionProbe is the minimum real-subprocess integration

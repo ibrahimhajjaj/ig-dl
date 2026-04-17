@@ -7,7 +7,7 @@ import (
 	"io"
 	"os/exec"
 
-	"github.com/ibrhajjaj/ig-dl/internal/types"
+	"github.com/ibrahimhajjaj/ig-dl/internal/types"
 )
 
 // YTDLP is a types.Backend that shells out to the `yt-dlp` command-line

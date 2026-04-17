@@ -3,7 +3,7 @@ package router
 import (
 	"fmt"
 
-	"github.com/ibrhajjaj/ig-dl/internal/types"
+	"github.com/ibrahimhajjaj/ig-dl/internal/types"
 )
 
 // BackendChoice names one of the supported backend runners.

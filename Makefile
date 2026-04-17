@@ -1,5 +1,5 @@
 BINARY := ig-dl
-PKG    := github.com/ibrhajjaj/ig-dl
+PKG    := github.com/ibrahimhajjaj/ig-dl
 
 .PHONY: build install test test-integration vet staticcheck lint smoke clean
 

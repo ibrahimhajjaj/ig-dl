@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ibrhajjaj/ig-dl/internal/backend"
-	"github.com/ibrhajjaj/ig-dl/internal/types"
+	"github.com/ibrahimhajjaj/ig-dl/internal/backend"
+	"github.com/ibrahimhajjaj/ig-dl/internal/types"
 )
 
 func TestClassify(t *testing.T) {
