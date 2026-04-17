@@ -78,16 +78,35 @@ Global flags: `--out <dir>`, `--json`.
 
 ## Auth: getting a session
 
-Chrome 136+ / Edge 136+ refuse `--remote-debugging-port` when pointed
-at your default profile as a security hardening. There's no toggle or
-policy that re-enables it against the default profile — Chrome's
-official guidance is to use a custom `--user-data-dir`. That leaves
-three workable paths:
+Three supported paths. Pick the first that fits your setup.
 
-### Path A — companion extension (recommended: real profile, no launch flags)
+### Path 1 (recommended) — `chrome://inspect/#remote-debugging` toggle
 
-Install the sidecar in your normal browser once, click a button
-whenever you need to refresh the session:
+**Requires Chrome 144+ / Edge 144+. No relaunch, works against your real
+default profile, keeps all your logins.**
+
+```
+1. In your normal browser (Chrome, Edge, Brave, etc.):
+   visit:  chrome://inspect/#remote-debugging
+           (or edge://inspect/#remote-debugging)
+2. Toggle "Allow remote debugging for this browser instance" ON
+3. Make sure instagram.com is open in a tab and you're signed in
+4. ./ig-dl login
+   (the browser pops a permission dialog — click "Allow")
+5. → "session captured from edge"  (or chrome, brave, ...)
+```
+
+`ig-dl` reads the browser's `DevToolsActivePort` file, connects via the
+exact WebSocket path the toggle registered, and captures cookies +
+rotating IG headers from your live tab. To reset the authorization,
+toggle the switch off and on again.
+
+Verify with `ig-dl browsers` — the browser should appear as `[live]`.
+
+### Path 2 — companion extension (works on any Chromium, any version)
+
+Drop-in fallback if your browser is pre-M144 (older Chrome/Edge), or
+you'd rather not flip the inspect toggle.
 
 ```
 1. In your normal browser:
@@ -102,108 +121,41 @@ whenever you need to refresh the session:
 Your real logins stay in your real browser. Only cost: one click per
 session refresh.
 
-### Path B — profile copy + `--remote-debugging-port`
+### Path 3 — `--remote-debugging-port` + `--user-data-dir` (automation / CI)
 
-Clones your real profile to an isolated dir so CDP works AND your IG
-login comes along as a snapshot:
+Use when you want CDP without depending on a human flipping the Path 1
+toggle — e.g. scripted runs or headless setups. Chrome 136+ requires
+`--user-data-dir` with this flag; it will silently ignore
+`--remote-debugging-port` on the default profile.
 
 ```sh
-# Quit the target browser first (profile files are locked while open)
-osascript -e 'quit app "Microsoft Edge"' ; sleep 2
-
-# Copy real profile → isolated dir (~1-2 GB)
-rm -rf "$HOME/.ig-dl/edge-profile"
-cp -R "$HOME/Library/Application Support/Microsoft Edge" \
-      "$HOME/.ig-dl/edge-profile"
-
-# Launch with CDP against the copy
+# Fresh profile — you sign into IG once, profile persists between runs
 /Applications/Microsoft\ Edge.app/Contents/MacOS/Microsoft\ Edge \
   --remote-debugging-port=9222 \
-  --user-data-dir="$HOME/.ig-dl/edge-profile" &
+  --user-data-dir="$HOME/.ig-dl/browser-profile" &
 
-# Verify — should return JSON, not 404
+# Optional — clone your real profile once so you're pre-logged-in:
+#   osascript -e 'quit app "Microsoft Edge"' && sleep 2
+#   rm -rf  "$HOME/.ig-dl/browser-profile"
+#   cp -R   "$HOME/Library/Application Support/Microsoft Edge" \
+#           "$HOME/.ig-dl/browser-profile"
+#   (then launch as above)
+
+# Verify the debug endpoint answered (should return JSON, not 404)
 sleep 2 && curl -s http://127.0.0.1:9222/json/version | head -3
 
 ./ig-dl login
 ```
 
-To refresh, re-run the copy step. Changes inside the copy (new
-bookmarks, saved passwords) don't sync back to your main browser.
+Chrome/Brave launch commands are identical — swap the app bundle path.
 
-### Path C — fresh profile + `--remote-debugging-port`
+### `ig-dl browsers`
 
-No copy. You log into Instagram once in the isolated profile; the
-profile persists, so future launches stay logged in.
-
-```sh
-/Applications/Microsoft\ Edge.app/Contents/MacOS/Microsoft\ Edge \
-  --remote-debugging-port=9222 \
-  --user-data-dir="$HOME/.ig-dl/browser-profile" &
-# In the new Edge window, open instagram.com and log in once, then:
-./ig-dl login
-```
-
-### Discovery (all paths)
-
-`ig-dl browsers` lists every browser whose user-data-dir contains a
-`DevToolsActivePort` file. Files marked `[live]` mean a debug-capable
-browser is currently answering on that port; `[stale]` means the file
-is a leftover from a past debug session and can be ignored (ig-dl
-won't connect to stale ports). This auto-detection works for Path B
-and Path C regardless of which port the browser picked.
-
-**Important:** Chromium-based browsers (since Chrome 136 / Edge 136, late
-2025) silently ignore `--remote-debugging-port` when pointed at your
-default user-data-dir, as a security hardening. Always pair the debug
-port flag with a fresh `--user-data-dir` — you'll sign into Instagram
-once inside that isolated profile and ig-dl attaches to it.
-
-```sh
-# macOS — Chrome
-/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
-  --remote-debugging-port=9222 \
-  --user-data-dir="$HOME/.ig-dl/browser-profile" &
-
-# macOS — Edge
-/Applications/Microsoft\ Edge.app/Contents/MacOS/Microsoft\ Edge \
-  --remote-debugging-port=9222 \
-  --user-data-dir="$HOME/.ig-dl/browser-profile" &
-
-# macOS — Brave
-/Applications/Brave\ Browser.app/Contents/MacOS/Brave\ Browser \
-  --remote-debugging-port=9222 \
-  --user-data-dir="$HOME/.ig-dl/browser-profile" &
-```
-
-Inside the new browser window, open `instagram.com` and log in (it's a
-fresh profile, so you won't carry over your main session — that's the
-point). Then, in a terminal:
-
-```sh
-ig-dl login
-```
-
-Verify the debug port is actually listening — if this returns 404 or
-nothing, the `--user-data-dir` flag is missing:
-
-```sh
-curl -s http://localhost:9222/json/version | head -3
-```
-
-Only one browser at a time can bind port 9222 — close other debug
-sessions first, or override via `chrome_debug_port` in
-`~/.ig-dl/config.toml`.
-
-### Fallback path — companion extension
-
-If you can't run Chrome with `--remote-debugging-port`, install the
-companion extension in `extension-companion/` (`chrome://extensions` → Load
-unpacked). After using Instagram normally, open the extension's options
-page and click **Export session for CLI**. Then:
-
-```sh
-ig-dl login --import ~/Downloads/ig-dl-session.json
-```
+Lists every browser whose user-data-dir contains a `DevToolsActivePort`
+file. `[live]` = a debug-capable browser is currently answering; `[stale]`
+= leftover file from a past debug session (ig-dl won't connect to it).
+Handles both classic `--remote-debugging-port` shapes (line 1 port only)
+and the M144 toggle shape (line 1 port + line 2 WebSocket path).
 
 ## Claude Code integration (MCP)
 
