@@ -1,7 +1,7 @@
 {
   "name": "ig-dl",
-  "version": "0.1.3",
-  "description": "Instagram downloader — CLI + MCP server. Five tools, three prompt templates, session capture against your real browser profile via the Chrome M144 chrome://inspect toggle.",
+  "version": "0.1.4",
+  "description": "Instagram downloader — CLI + MCP server. Six tools, three prompt templates, session capture against your real browser profile via the Chrome M144 chrome://inspect toggle.",
   "author": {
     "name": "Ibrahim Hajjaj"
   },

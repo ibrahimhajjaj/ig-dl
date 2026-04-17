@@ -179,8 +179,9 @@ If you don't want the slash commands / skill, add only the MCP server:
 claude mcp add ig-dl -- $(go env GOPATH)/bin/ig-dl mcp
 ```
 
-**Tools** (callable primitives): `ig_download_url`, `ig_download_user`,
-`ig_download_saved`, `ig_session_status`, `ig_login`.
+**Tools** (callable primitives): `ig_download_url`, `ig_download_urls`
+(batch), `ig_download_user`, `ig_download_saved`, `ig_session_status`,
+`ig_login`.
 
 **Prompts** (user-selectable workflow templates in MCP clients that
 surface them, e.g. `/ig-dl:download_url`):

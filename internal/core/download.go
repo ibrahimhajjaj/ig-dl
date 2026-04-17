@@ -85,6 +85,106 @@ func DownloadURL(ctx context.Context, url string, opt Options) (*Result, error) 
 	}, nil
 }
 
+// DownloadURLs downloads a batch of Instagram URLs through a bounded
+// worker pool. Each URL is routed independently (post → gallery-dl,
+// reel → yt-dlp, etc.) and wrapped in fetchWithResilience, so an
+// auth-refresh on one URL automatically applies to subsequent ones via
+// the on-disk cookies file.
+//
+// Concurrency is capped at opt.Config.Concurrency (default 3) to avoid
+// tripping IG's rate limiter when the caller hands in many URLs. A
+// single URL in the slice falls through to DownloadURL's hot path.
+func DownloadURLs(ctx context.Context, urls []string, opt Options) (*Result, error) {
+	switch len(urls) {
+	case 0:
+		return nil, errors.New("no URLs provided")
+	case 1:
+		return DownloadURL(ctx, urls[0], opt)
+	}
+	if err := opt.Config.Validate(); err != nil {
+		return nil, fmt.Errorf("config invalid: %w", err)
+	}
+	// Resolve auth once for the whole batch; every subsequent Fetch
+	// just reads the cookies file.
+	sess, err := ensureSession(ctx, opt)
+	if err != nil {
+		return nil, err
+	}
+
+	outDir := opt.OutDir
+	if outDir == "" {
+		outDir = opt.Config.OutDir
+	}
+
+	concurrency := opt.Config.Concurrency
+	if concurrency < 1 {
+		concurrency = 1
+	}
+	if concurrency > len(urls) {
+		concurrency = len(urls)
+	}
+
+	var mu sync.Mutex
+	ok := 0
+	var failures []string
+
+	notify(opt.Progress, "batch", 0, float64(len(urls)),
+		fmt.Sprintf("downloading %d urls", len(urls)))
+
+	sem := make(chan struct{}, concurrency)
+	var wg sync.WaitGroup
+	for _, u := range urls {
+		u := u
+		wg.Add(1)
+		sem <- struct{}{}
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			target, perr := router.Parse(u)
+			if perr != nil {
+				mu.Lock()
+				failures = append(failures, fmt.Sprintf("%s: %v", u, perr))
+				mu.Unlock()
+				return
+			}
+			b, berr := pickBackend(opt, target)
+			if berr != nil {
+				mu.Lock()
+				failures = append(failures, fmt.Sprintf("%s: %v", u, berr))
+				mu.Unlock()
+				return
+			}
+			if err := fetchWithResilience(ctx, b, target, sess, outDir, opt); err != nil {
+				mu.Lock()
+				failures = append(failures, fmt.Sprintf("%s: %v", u, err))
+				mu.Unlock()
+				return
+			}
+			mu.Lock()
+			ok++
+			done := ok + len(failures)
+			mu.Unlock()
+			notify(opt.Progress, "batch", float64(done), float64(len(urls)), u)
+		}()
+	}
+	wg.Wait()
+
+	res := &Result{
+		OutDir:   outDir,
+		Counts:   map[string]int{"succeeded": ok, "failed": len(failures), "total": len(urls)},
+		Failures: failures,
+		Meta:     map[string]string{"concurrency": fmt.Sprintf("%d", concurrency)},
+	}
+	if len(failures) > 0 && ok == 0 {
+		return res, errors.New("all downloads failed")
+	}
+	if len(failures) > 0 {
+		return res, errors.New("some downloads failed")
+	}
+	return res, nil
+}
+
 // DownloadUser runs the profile-bulk flow. Per the spec it splits a
 // profile handle into per-kind stages (posts, stories, highlights) and
 // executes them through a bounded worker pool (Concurrency from config)
@@ -295,6 +395,7 @@ func DownloadSaved(ctx context.Context, opt Options) (*Result, error) {
 		BinPath:     opt.Config.Backend.GalleryDLPath,
 		CookiesFile: opt.Config.CookiesPath,
 		OutDir:      outDir,
+		ArchiveDir:  opt.Config.ArchiveDir,
 		Stdout:      opt.Stdout,
 		Stderr:      opt.Stderr,
 	}

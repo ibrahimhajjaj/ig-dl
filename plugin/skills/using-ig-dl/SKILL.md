@@ -9,10 +9,11 @@ The `ig-dl` plugin ships an MCP server exposing five tools and three curated pro
 
 ## Decision order
 
-1. **Does the user want a single Instagram URL downloaded?** → Either call the `ig_download_url` tool directly (if you're mid-task) or suggest the `/ig-dl:download_url` prompt (if the user is just starting).
-2. **Does the user want to archive a whole profile?** → `ig_download_user` tool, or the `/ig-dl:archive_profile` prompt.
-3. **Does the user want their saved collection?** → `ig_download_saved` tool.
-4. **Is the user reporting "it's not working"?** → First call `ig_session_status`, then use the `/ig-dl:session_health` prompt or the `/ig-dl:diagnose` command to investigate before trying downloads again.
+1. **Does the user want a single Instagram URL?** → Call `ig_download_url` with `{url: ...}`.
+2. **Does the user have MULTIPLE Instagram URLs (more than one)?** → Call `ig_download_urls` **once** with `{urls: [...]}`. **DO NOT loop `ig_download_url`.** Looping forces a fresh session attach per invocation, which is slower and on Chrome 144+ pops the remote-debugging permission dialog every single time. The batch tool runs them through a bounded worker pool with one auth resolution up front.
+3. **Does the user want to archive a whole profile?** → `ig_download_user` tool, or the `/ig-dl:archive_profile` prompt.
+4. **Does the user want their saved collection?** → `ig_download_saved` tool.
+5. **Is the user reporting "it's not working"?** → First call `ig_session_status`, then use the `/ig-dl:session_health` prompt or the `/ig-dl:diagnose` command to investigate before trying downloads again.
 
 ## Tool contract (stable across CLI `--json` and MCP)
 
@@ -40,6 +41,7 @@ On failure the MCP server returns `IsError: true` with a structured payload:
 - **Do not auto-retry on `auth_failed` or `no_session`.** ig-dl already does one refresh-and-retry internally for auth failures; if it still bubbles up, the user needs to act (login or check browser CDP toggle). Tell them.
 - **Do not suggest manually exporting cookies or editing `~/.ig-dl/session.json`.** The companion extension's "Export for CLI" button or `ig-dl login` are the only supported session sources.
 - **Do not parse backend stdout.** The tools already classify results; use the structured JSON.
+- **Do not loop `ig_download_url` for multiple URLs.** Use `ig_download_urls` with the array in one call. This is both faster and user-friendlier — each separate attach re-triggers the browser's M144 permission dialog.
 
 ## Setup nudge
 

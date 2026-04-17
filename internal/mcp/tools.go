@@ -16,6 +16,11 @@ type downloadURLArgs struct {
 	OutDir string `json:"out_dir,omitempty" jsonschema:"override config OutDir"`
 }
 
+type downloadURLsArgs struct {
+	URLs   []string `json:"urls" jsonschema:"Array of Instagram URLs to download in one call. Use this instead of looping ig_download_url so the server can batch them through a worker pool."`
+	OutDir string   `json:"out_dir,omitempty" jsonschema:"override config OutDir for the whole batch"`
+}
+
 type downloadUserArgs struct {
 	Handle  string   `json:"handle" jsonschema:"Instagram username without the @"`
 	OutDir  string   `json:"out_dir,omitempty"`
@@ -53,6 +58,16 @@ func registerTools(srv *mcpsdk.Server, baseOpts core.Options) {
 		opts := withOutDir(baseOpts, args.OutDir)
 		attachProgress(&opts, req)
 		res, err := core.DownloadURL(ctx, args.URL, opts)
+		return toolResult(res, err)
+	})
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "ig_download_urls",
+		Description: "Download multiple Instagram URLs in one call. Strongly preferred over looping ig_download_url — the server runs them through a bounded worker pool and only attaches to the session once.",
+	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args downloadURLsArgs) (*mcpsdk.CallToolResult, *core.Result, error) {
+		opts := withOutDir(baseOpts, args.OutDir)
+		attachProgress(&opts, req)
+		res, err := core.DownloadURLs(ctx, args.URLs, opts)
 		return toolResult(res, err)
 	})
 

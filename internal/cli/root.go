@@ -24,18 +24,20 @@ var (
 // NewRoot builds the root `ig-dl` command tree.
 func NewRoot() *cobra.Command {
 	root := &cobra.Command{
-		Use:   "ig-dl [flags] <url>",
+		Use:   "ig-dl [flags] <url> [<url> ...]",
 		Short: "Download Instagram content from the terminal",
 		Long: `ig-dl downloads Instagram posts, reels, stories, highlights, full profiles, and saved collections.
 
 It piggybacks on your already-logged-in Chrome session (CDP attach on the debug port)
-and shells out to gallery-dl or yt-dlp for actual media fetching.`,
-		Args: cobra.MaximumNArgs(1),
+and shells out to gallery-dl or yt-dlp for actual media fetching.
+
+Multiple URLs run through a bounded worker pool (Concurrency from config, default 3).`,
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
 			}
-			return runURL(cmd.Context(), args[0])
+			return runURLs(cmd.Context(), args)
 		},
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -116,13 +118,16 @@ func emit(result *core.Result) error {
 	return enc.Encode(result)
 }
 
-func runURL(ctx context.Context, url string) error {
+func runURLs(ctx context.Context, urls []string) error {
 	opts, err := loadOpts()
 	if err != nil {
 		return err
 	}
-	res, err := core.DownloadURL(ctx, url, opts)
+	res, err := core.DownloadURLs(ctx, urls, opts)
 	if err != nil {
+		if res != nil {
+			_ = emit(res)
+		}
 		return err
 	}
 	return emit(res)
