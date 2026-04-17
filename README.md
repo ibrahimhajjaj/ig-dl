@@ -163,8 +163,15 @@ and the M144 toggle shape (line 1 port + line 2 WebSocket path).
 claude mcp add ig-dl -- $(go env GOPATH)/bin/ig-dl mcp
 ```
 
-Five tools are exposed: `ig_download_url`, `ig_download_user`,
+**Tools** (callable primitives): `ig_download_url`, `ig_download_user`,
 `ig_download_saved`, `ig_session_status`, `ig_login`.
+
+**Prompts** (user-selectable workflow templates in MCP clients that
+surface them, e.g. `/ig-dl:download_url`):
+
+- `download_url` — pick a URL, have the LLM check auth + download + summarize.
+- `archive_profile` — back up a full profile, report per-stage counts.
+- `session_health` — diagnose current auth state and propose remediation.
 
 ## Config
 

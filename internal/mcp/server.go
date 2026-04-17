@@ -20,8 +20,9 @@ func RunStdio(ctx context.Context, opts core.Options) error {
 func NewServer(opts core.Options) *mcpsdk.Server {
 	srv := mcpsdk.NewServer(&mcpsdk.Implementation{
 		Name:    "ig-dl",
-		Version: "0.1.0",
+		Version: "0.1.2",
 	}, nil)
 	registerTools(srv, opts)
+	registerPrompts(srv)
 	return srv
 }
