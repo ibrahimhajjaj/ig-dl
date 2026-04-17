@@ -7,6 +7,43 @@ in the CLI) and shells out to `gallery-dl` / `yt-dlp` for the actual media
 fetching. The same binary also speaks the Model Context Protocol over
 stdio, so Claude Code can drive it as tools.
 
+## Why not just use `gallery-dl` or `yt-dlp` directly?
+
+You *can*, and both are great. `ig-dl` wraps them to remove the
+annoying parts and add a few things you'd otherwise build yourself:
+
+- **Automatic session capture.** No hand-exporting cookies via a browser
+  extension and `curl`-friendly cookie files. `ig-dl login` attaches to
+  your running Chromium browser over CDP (including Chrome 144+'s
+  `chrome://inspect/#remote-debugging` toggle, which works against your
+  *real* default profile) and writes a fresh `cookies.txt` for the
+  backends.
+- **Smart routing.** Reels → `yt-dlp` (better for single videos).
+  Posts, stories, highlights, saved, profile bulk → `gallery-dl`
+  (better for images + multi-item extraction). One URL in, correct tool
+  out.
+- **Resilience.** Auth-error-driven session refresh + retry,
+  exponential backoff on rate limits, CDP connect retry, age-based
+  silent refresh — none of which `gallery-dl`/`yt-dlp` do for you.
+- **Structured output.** `--json` gives the same shape as the MCP tool
+  responses, so shell pipelines, CI jobs, and AI agents consume a
+  single stable contract.
+- **MCP server in the same binary.** `ig-dl mcp` exposes five tools
+  (`ig_download_url`, `ig_download_user`, etc.) over stdio for Claude
+  Code or any MCP client — no Node shim, no Python bridge.
+- **Profile-bulk parallelism + per-stage layout.** Splits a profile
+  into posts / stories / highlights, runs them through a bounded
+  worker pool, writes into `<handle>/posts`, `<handle>/stories`,
+  `<handle>/highlights`. gallery-dl's default layout doesn't give you
+  that split.
+- **Typed error categories.** Backend auth failure vs rate-limit vs
+  missing binary are distinct exit codes and distinct MCP error
+  categories, not one opaque error string.
+
+If you only ever download single URLs occasionally, a direct
+`gallery-dl --cookies ~/cookies.txt <url>` is fine. If you want all of
+the above without writing the glue yourself, that's what `ig-dl` is.
+
 ## Install
 
 ```sh

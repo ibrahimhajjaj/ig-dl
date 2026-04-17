@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sync"
+	"time"
 
 	"github.com/ibrhajjaj/ig-dl/internal/backend"
 	"github.com/ibrhajjaj/ig-dl/internal/config"
@@ -71,7 +73,7 @@ func DownloadURL(ctx context.Context, url string, opt Options) (*Result, error) 
 	}
 
 	notify(opt.Progress, "download", 0, 1, fmt.Sprintf("downloading %s", url))
-	if err := b.Fetch(ctx, target, sess, outDir); err != nil {
+	if err := fetchWithResilience(ctx, b, target, sess, outDir, opt); err != nil {
 		return nil, fmt.Errorf("%s: %w", router.Choose(target), err)
 	}
 	notify(opt.Progress, "download", 1, 1, "done")
@@ -83,9 +85,14 @@ func DownloadURL(ctx context.Context, url string, opt Options) (*Result, error) 
 	}, nil
 }
 
-// DownloadUser runs the profile-bulk flow: profile posts/reels,
-// stories, and highlights. Each stage maps to one backend invocation
-// and emits one progress event.
+// DownloadUser runs the profile-bulk flow. Per the spec it splits a
+// profile handle into per-kind stages (posts, stories, highlights) and
+// executes them through a bounded worker pool (Concurrency from config)
+// so the three gallery-dl invocations can overlap. Each stage writes
+// into its own output subdir (<outDir>/posts, /stories, /highlights).
+//
+// `include` optionally restricts which stages run. Empty = run all.
+// Valid stage names: posts, stories, highlights.
 func DownloadUser(ctx context.Context, handle string, include []string, opt Options) (*Result, error) {
 	if err := opt.Config.Validate(); err != nil {
 		return nil, fmt.Errorf("config invalid: %w", err)
@@ -107,8 +114,9 @@ func DownloadUser(ctx context.Context, handle string, include []string, opt Opti
 	if err != nil {
 		return nil, err
 	}
+	_ = sess // backend auth comes via the cookies file we just wrote
 
-	b := &backend.GalleryDL{
+	gd := &backend.GalleryDL{
 		BinPath:     opt.Config.Backend.GalleryDLPath,
 		CookiesFile: opt.Config.CookiesPath,
 		OutDir:      outDir,
@@ -117,15 +125,51 @@ func DownloadUser(ctx context.Context, handle string, include []string, opt Opti
 		Stderr:      opt.Stderr,
 	}
 
+	stages := profileStages(target.Handle, outDir, include)
 	counts := map[string]int{}
 	var failures []string
-	notify(opt.Progress, "profile", 0, 1, fmt.Sprintf("gallery-dl for %s", target.Handle))
-	if err := b.Fetch(ctx, target, sess, outDir); err != nil {
-		failures = append(failures, err.Error())
-	} else {
-		counts["profile"] = 1
+	var mu sync.Mutex
+
+	concurrency := opt.Config.Concurrency
+	if concurrency < 1 {
+		concurrency = 1
 	}
-	notify(opt.Progress, "profile", 1, 1, "done")
+	if concurrency > len(stages) {
+		concurrency = len(stages)
+	}
+
+	notify(opt.Progress, "profile", 0, float64(len(stages)),
+		fmt.Sprintf("running %d stage(s) for %s", len(stages), target.Handle))
+
+	sem := make(chan struct{}, concurrency)
+	var wg sync.WaitGroup
+	for _, st := range stages {
+		st := st
+		wg.Add(1)
+		sem <- struct{}{}
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+			if err := runStage(ctx, gd, st, opt, target.Handle); err != nil {
+				mu.Lock()
+				failures = append(failures, fmt.Sprintf("%s: %v", st.Kind, err))
+				mu.Unlock()
+			} else {
+				mu.Lock()
+				counts[st.Kind]++
+				mu.Unlock()
+			}
+			mu.Lock()
+			done := 0
+			for _, n := range counts {
+				done += n
+			}
+			done += len(failures)
+			mu.Unlock()
+			notify(opt.Progress, "profile", float64(done), float64(len(stages)), st.Kind+" finished")
+		}()
+	}
+	wg.Wait()
 
 	res := &Result{
 		OutDir:   outDir,
@@ -138,6 +182,95 @@ func DownloadUser(ctx context.Context, handle string, include []string, opt Opti
 		return res, errors.New("one or more stages failed")
 	}
 	return res, nil
+}
+
+type userStage struct {
+	Kind   string
+	URL    string
+	OutDir string
+	Extra  []string
+}
+
+// profileStages expands a handle into per-kind download stages that can
+// run in parallel. Each stage has its own output subdirectory so the
+// spec-specified layout is preserved.
+func profileStages(handle, baseOut string, include []string) []userStage {
+	all := []userStage{
+		{
+			Kind:   "posts",
+			URL:    fmt.Sprintf("https://www.instagram.com/%s/", handle),
+			OutDir: filepath.Join(baseOut, "posts"),
+		},
+		{
+			Kind:   "stories",
+			URL:    fmt.Sprintf("https://www.instagram.com/stories/%s/", handle),
+			OutDir: filepath.Join(baseOut, "stories"),
+		},
+		{
+			Kind:   "highlights",
+			URL:    fmt.Sprintf("https://www.instagram.com/%s/", handle),
+			OutDir: filepath.Join(baseOut, "highlights"),
+			Extra:  []string{"-o", "instagram.highlights=true"},
+		},
+	}
+	if len(include) == 0 {
+		return all
+	}
+	want := make(map[string]struct{}, len(include))
+	for _, k := range include {
+		want[k] = struct{}{}
+	}
+	out := make([]userStage, 0, len(all))
+	for _, s := range all {
+		if _, ok := want[s.Kind]; ok {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// runStage wraps a single gallery-dl invocation with the full resilience
+// policy (auth refresh-retry, rate-limit backoff). It mirrors
+// fetchWithResilience but works directly with gallery-dl.RunURL rather
+// than the types.Backend interface, because per-stage invocations need
+// their own per-stage output dirs and --download-archive args.
+func runStage(ctx context.Context, gd *backend.GalleryDL, st userStage, opt Options, handle string) error {
+	extra := append([]string{}, gd.ArchiveArg(handle)...)
+	extra = append(extra, st.Extra...)
+
+	const maxRateAttempts = 3
+	backoff := time.Second
+	for attempt := 1; attempt <= maxRateAttempts; attempt++ {
+		err := gd.RunURL(ctx, st.URL, st.OutDir, extra...)
+		if err == nil {
+			return nil
+		}
+		switch Classify(err) {
+		case ErrCategoryAuthFailed:
+			if attempt == 1 {
+				if fresh, _, derr := session.AttachDiscovered(ctx, ""); derr == nil && fresh != nil {
+					_ = session.Save(fresh, opt.Config.SessionPath)
+					_ = session.WriteNetscape(fresh, opt.Config.CookiesPath)
+					continue
+				}
+			}
+			return err
+		case ErrCategoryRateLimited:
+			if attempt >= maxRateAttempts {
+				return err
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(backoff):
+			}
+			backoff *= 2
+			continue
+		default:
+			return err
+		}
+	}
+	return nil
 }
 
 // DownloadSaved pulls the authenticated user's saved collection.
@@ -166,7 +299,7 @@ func DownloadSaved(ctx context.Context, opt Options) (*Result, error) {
 		Stderr:      opt.Stderr,
 	}
 	notify(opt.Progress, "saved", 0, 1, "downloading saved collection")
-	if err := b.Fetch(ctx, target, sess, outDir); err != nil {
+	if err := fetchWithResilience(ctx, b, target, sess, outDir, opt); err != nil {
 		return nil, err
 	}
 	notify(opt.Progress, "saved", 1, 1, "done")
@@ -264,6 +397,23 @@ func ensureSession(ctx context.Context, opt Options) (*types.Session, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Age-based refresh per the spec: if the session is older than
+	// StaleAfter AND a live browser with CDP is reachable, silently
+	// capture a fresh one before dispatch. If no browser is reachable
+	// we proceed with the existing session; downstream auth errors are
+	// handled by the retry path.
+	age := session.Age(s)
+	if opt.Config.StaleAfter > 0 && age > opt.Config.StaleAfter {
+		if fresh, _, derr := session.AttachDiscovered(ctx, ""); derr == nil && fresh != nil {
+			if err := session.Save(fresh, opt.Config.SessionPath); err == nil {
+				s = fresh
+			}
+		}
+	}
+	// Warn (to stderr) on very old sessions regardless of refresh outcome.
+	if opt.Config.WarnAfter > 0 && session.Age(s) > opt.Config.WarnAfter && opt.Stderr != nil {
+		fmt.Fprintf(opt.Stderr, "warning: session is %s old; consider running `ig-dl login`\n", session.Age(s).Truncate(1e9))
+	}
 	if err := session.WriteNetscape(s, opt.Config.CookiesPath); err != nil {
 		return nil, err
 	}
@@ -311,4 +461,54 @@ func notify(p Progress, stage string, cur, total float64, msg string) {
 	if p != nil {
 		p(stage, cur, total, msg)
 	}
+}
+
+// fetchWithResilience wraps a Backend.Fetch with the retry policy the
+// spec mandates: one auth refresh-and-retry on auth_failed, and
+// exponential backoff on rate_limit up to 3 attempts.
+func fetchWithResilience(ctx context.Context, b types.Backend, t types.Target, sess *types.Session, outDir string, opt Options) error {
+	const maxRateAttempts = 3
+	var lastErr error
+	backoff := time.Second
+
+	for attempt := 1; attempt <= maxRateAttempts; attempt++ {
+		err := b.Fetch(ctx, t, sess, outDir)
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+
+		cat := Classify(err)
+		switch cat {
+		case ErrCategoryAuthFailed:
+			// One refresh-and-retry per the spec.
+			if attempt == 1 {
+				notify(opt.Progress, "session", 0, 1, "auth failed; refreshing session")
+				if fresh, _, derr := session.AttachDiscovered(ctx, ""); derr == nil && fresh != nil {
+					_ = session.Save(fresh, opt.Config.SessionPath)
+					_ = session.WriteNetscape(fresh, opt.Config.CookiesPath)
+					sess = fresh
+					notify(opt.Progress, "session", 1, 1, "session refreshed")
+					continue
+				}
+			}
+			return err
+		case ErrCategoryRateLimited:
+			if attempt >= maxRateAttempts {
+				return err
+			}
+			notify(opt.Progress, "backoff", float64(attempt), float64(maxRateAttempts),
+				fmt.Sprintf("rate limited; sleeping %s", backoff))
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(backoff):
+			}
+			backoff *= 2
+			continue
+		default:
+			return err
+		}
+	}
+	return lastErr
 }

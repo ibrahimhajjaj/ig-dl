@@ -45,6 +45,33 @@ func (g *GalleryDL) binary() string {
 	return g.BinPath
 }
 
+// RunURL is the primitive single-invocation runner used by callers that
+// want to schedule per-stage invocations themselves (e.g. the core
+// orchestrator's worker pool for profile bulk). It skips buildArgs and
+// runs exactly one gallery-dl subprocess for the given URL.
+//
+// The argv is: gallery-dl --cookies <c> -d <outDir> [archive] [extra...] <url>
+func (g *GalleryDL) RunURL(ctx context.Context, url, outDir string, extra ...string) error {
+	if url == "" {
+		return fmt.Errorf("gallery-dl: empty URL")
+	}
+	argv := []string{g.binary(), "--cookies", g.CookiesFile, "-d", outDir}
+	argv = append(argv, extra...)
+	argv = append(argv, url)
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	return runCmd(ctx, cmd, g.Stdout, g.Stderr)
+}
+
+// ArchiveArg returns the --download-archive argument pair for a
+// profile handle, or nil if ArchiveDir is unset. Used by the
+// orchestrator to opt each stage into resume behaviour.
+func (g *GalleryDL) ArchiveArg(handle string) []string {
+	if g.ArchiveDir == "" || handle == "" {
+		return nil
+	}
+	return []string{"--download-archive", filepath.Join(g.ArchiveDir, handle+".sqlite")}
+}
+
 // Fetch satisfies types.Backend. It expands the Target into one or more
 // gallery-dl invocations via buildArgs and runs them sequentially,
 // stopping at the first failure and returning its *ExecError.

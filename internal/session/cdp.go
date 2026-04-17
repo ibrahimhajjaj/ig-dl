@@ -172,10 +172,22 @@ func AttachRunningChromeWithOptions(ctx context.Context, debugPort int, opts Att
 
 	debugURL := fmt.Sprintf("http://127.0.0.1:%d", debugPort)
 
-	// Probe /json/version before handing the URL to chromedp so we can
-	// produce a crisp sentinel error if Chrome isn't listening.
-	if err := probeDebugEndpoint(ctx, opts.HTTPClient, debugURL); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrCDPUnreachable, err)
+	// Probe /json/version with a small retry loop so transient network
+	// blips (e.g. Chrome is mid-restart) don't fail us instantly.
+	var probeErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		probeErr = probeDebugEndpoint(ctx, opts.HTTPClient, debugURL)
+		if probeErr == nil {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+	if probeErr != nil {
+		return nil, fmt.Errorf("%w: %v", ErrCDPUnreachable, probeErr)
 	}
 
 	allocCtx, allocCancel := chromedp.NewRemoteAllocator(ctx, debugURL)

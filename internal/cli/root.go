@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/ibrhajjaj/ig-dl/internal/config"
 	"github.com/ibrhajjaj/ig-dl/internal/core"
@@ -90,8 +92,19 @@ func emit(result *core.Result) error {
 			return nil
 		}
 		fmt.Fprintf(os.Stdout, "\n→ output: %s\n", result.OutDir)
+		if result.Handle != "" {
+			fmt.Fprintf(os.Stdout, "  handle: %s\n", result.Handle)
+		}
+		// Human-readable summary for multi-stage operations.
+		ok := 0
+		for _, n := range result.Counts {
+			ok += n
+		}
+		if ok > 0 || len(result.Failures) > 0 {
+			fmt.Fprintf(os.Stdout, "  stages: %d succeeded, %d failed\n", ok, len(result.Failures))
+		}
 		if len(result.Failures) > 0 {
-			fmt.Fprintf(os.Stderr, "failures: %d\n", len(result.Failures))
+			fmt.Fprintln(os.Stderr, "failures:")
 			for _, f := range result.Failures {
 				fmt.Fprintf(os.Stderr, "  - %s\n", f)
 			}
@@ -115,8 +128,23 @@ func runURL(ctx context.Context, url string) error {
 	return emit(res)
 }
 
+// signalCtx returns a context that is cancelled when the user hits
+// Ctrl-C (SIGINT) or the process receives SIGTERM. Cancellation flows
+// into the running backend subprocess so we exit cleanly without
+// orphaning a gallery-dl/yt-dlp child.
 func signalCtx() (context.Context, context.CancelFunc) {
-	return context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		select {
+		case <-sigCh:
+			cancel()
+		case <-ctx.Done():
+		}
+		signal.Stop(sigCh)
+	}()
+	return ctx, cancel
 }
 
 // exitCodeFor maps a bubbled error to the spec's exit-code table via
